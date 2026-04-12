@@ -13,23 +13,33 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
         <li class="nav-item <?= ($current_page == 'dashboard.php') ? 'active' : '' ?>">
             <a href="<?= APP_URL ?>/dashboard.php"><i class="fas fa-home"></i> Dashboard</a>
         </li>
+        <?php if (has_permission('members')): ?>
         <li class="nav-item <?= ($current_dir == 'members') ? 'active' : '' ?>">
             <a href="<?= APP_URL ?>/members/index.php"><i class="fas fa-users"></i> Members</a>
         </li>
+        <?php endif; ?>
+        <?php if (has_permission('plans')): ?>
         <li class="nav-item <?= ($current_dir == 'plans') ? 'active' : '' ?>">
             <a href="<?= APP_URL ?>/plans/index.php"><i class="fas fa-tags"></i> Membership Plans</a>
         </li>
+        <?php endif; ?>
+        <?php if (has_permission('payments')): ?>
         <li class="nav-item <?= ($current_dir == 'payments') ? 'active' : '' ?>">
             <a href="<?= APP_URL ?>/payments/index.php"><i class="fas fa-credit-card"></i> Payments</a>
         </li>
+        <?php endif; ?>
+        <?php if (has_permission('attendance')): ?>
         <li class="nav-item <?= ($current_dir == 'attendance') ? 'active' : '' ?>">
             <a href="<?= APP_URL ?>/attendance/index.php"><i class="fas fa-clock"></i> Attendance</a>
         </li>
-        
-        <?php if ($_SESSION['user_role'] === 'admin'): ?>
+        <?php endif; ?>
+        <?php if (has_permission('reports')): ?>
         <li class="nav-item <?= ($current_dir == 'reports') ? 'active' : '' ?>">
             <a href="<?= APP_URL ?>/reports/index.php"><i class="fas fa-chart-bar"></i> Reports</a>
         </li>
+        <?php endif; ?>
+        
+        <?php if ($_SESSION['user_role'] === 'admin'): ?>
         <li class="nav-title">Admin</li>
         <li class="nav-item <?= ($current_dir == 'admin' && $current_page == 'users.php') ? 'active' : '' ?>">
             <a href="<?= APP_URL ?>/admin/users.php"><i class="fas fa-user-shield"></i> User Accounts</a>

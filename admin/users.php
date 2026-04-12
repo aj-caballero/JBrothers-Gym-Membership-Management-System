@@ -33,6 +33,7 @@ $users = $stmt->fetchAll();
                     <th>Email</th>
                     <th>Role</th>
                     <th>Date Added</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -43,6 +44,9 @@ $users = $stmt->fetchAll();
                         <td><?= htmlspecialchars($u->email) ?></td>
                         <td><span class="badge" style="background: <?= $u->role === 'admin' ? '#17a2b8' : '#6c757d' ?>"><?= ucfirst($u->role) ?></span></td>
                         <td><?= formatDate($u->created_at) ?></td>
+                        <td>
+                            <a href="edit_user.php?id=<?= $u->id ?>" class="btn btn-sm" style="background:#ffc107; color:#000;" title="Edit Settings"><i class="fas fa-edit"></i> Edit</a>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -72,10 +76,20 @@ $users = $stmt->fetchAll();
             </div>
             <div class="form-group">
                 <label>Role</label>
-                <select name="role" class="form-control">
+                <select name="role" id="roleSelect" class="form-control">
                     <option value="staff">Staff</option>
                     <option value="admin">Admin</option>
                 </select>
+            </div>
+            <div class="form-group" id="permissionsGroup">
+                <label>Module Access (Staff Only)</label>
+                <div style="display:flex; flex-wrap:wrap; gap:15px; margin-top:5px; margin-bottom:10px;">
+                    <label style="display:inline-flex; align-items:center; gap:5px;"><input type="checkbox" name="permissions[]" value="members" checked> Members</label>
+                    <label style="display:inline-flex; align-items:center; gap:5px;"><input type="checkbox" name="permissions[]" value="plans" checked> Plans</label>
+                    <label style="display:inline-flex; align-items:center; gap:5px;"><input type="checkbox" name="permissions[]" value="payments" checked> Payments</label>
+                    <label style="display:inline-flex; align-items:center; gap:5px;"><input type="checkbox" name="permissions[]" value="attendance" checked> Attendance</label>
+                    <label style="display:inline-flex; align-items:center; gap:5px;"><input type="checkbox" name="permissions[]" value="reports" checked> Reports</label>
+                </div>
             </div>
             <button type="submit" class="btn btn-primary" style="width:100%;">Create User</button>
         </form>
@@ -90,6 +104,10 @@ window.onclick = function(event) {
         modal.style.display = "none";
     }
 }
+
+document.getElementById('roleSelect').addEventListener('change', function() {
+    document.getElementById('permissionsGroup').style.display = (this.value === 'admin') ? 'none' : 'block';
+});
 </script>
 
 <?php require_once '../includes/footer.php'; ?>

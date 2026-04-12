@@ -10,6 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = trim($_POST['phone'] ?? '');
     $password = $_POST['password'] ?? '';
     $role = $_POST['role'] ?? 'staff';
+    $permissions_array = $_POST['permissions'] ?? [];
+    $permissions_string = ($role === 'admin') ? null : implode(',', $permissions_array);
 
     // Basic validation
     if (empty($full_name) || empty($email) || empty($password)) {
@@ -25,8 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-    $stmt = $pdo->prepare("INSERT INTO users (full_name, email, phone, password, role) VALUES (?, ?, ?, ?, ?)");
-    if ($stmt->execute([$full_name, $email, $phone, $hashedPassword, $role])) {
+    $stmt = $pdo->prepare("INSERT INTO users (full_name, email, phone, password, role, permissions) VALUES (?, ?, ?, ?, ?, ?)");
+    if ($stmt->execute([$full_name, $email, $phone, $hashedPassword, $role, $permissions_string])) {
         redirect('/admin/users.php?success=added');
     } else {
         redirect('/admin/users.php?error=failed');

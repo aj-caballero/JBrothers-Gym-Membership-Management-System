@@ -20,6 +20,7 @@ CREATE TABLE users (
     phone VARCHAR(20),
     password VARCHAR(255) NOT NULL,
     role ENUM('admin', 'staff') NOT NULL DEFAULT 'staff',
+    permissions VARCHAR(255) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -31,12 +32,13 @@ CREATE TABLE members (
     id INT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NULL DEFAULT NULL,
     phone VARCHAR(20),
     address TEXT,
     date_of_birth DATE,
     gender ENUM('Male', 'Female', 'Other'),
     join_date DATE NOT NULL,
-    status ENUM('Active', 'Expired', 'Suspended') DEFAULT 'Active',
+    status ENUM('Active', 'Inactive', 'Expired', 'Suspended') DEFAULT 'Inactive',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -21,10 +21,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->fetch()) {
             $error = "Email already exists!";
         } else {
-            $sql = "INSERT INTO members (full_name, email, phone, address, date_of_birth, gender, join_date, status) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO members (full_name, email, password, phone, address, date_of_birth, gender, join_date, status) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $pdo->prepare($sql);
-            if ($stmt->execute([$full_name, $email, $phone, $address, $dob, $gender, $join_date, $status])) {
+            $defaultPassword = password_hash('password', PASSWORD_DEFAULT);
+            if ($stmt->execute([$full_name, $email, $defaultPassword, $phone, $address, $dob, $gender, $join_date, $status])) {
                 redirect('/members/index.php');
             } else {
                 $error = "Failed to add member.";
@@ -89,11 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="form-group">
             <label>Initial Status</label>
-            <select name="status" class="form-control">
-                <option value="Active">Active</option>
-                <option value="Expired">Expired</option>
-                <option value="Suspended">Suspended</option>
-            </select>
+            <input type="text" name="status" class="form-control" value="Inactive" readonly>
+            <small style="color: #666; font-size: 0.85em; margin-top: 5px; display: block;">New members default to Inactive until a membership plan is added.</small>
         </div>
 
         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Member</button>

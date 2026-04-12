@@ -2,7 +2,6 @@
 // C:/Users/Kyle/GYM MEMBERSHIP/reports/index.php
 $pageTitle = 'Reports & Analytics';
 require_once '../includes/header.php';
-require_admin();
 
 // Base monthly revenue chart data
 $months = [];

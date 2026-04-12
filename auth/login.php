@@ -19,12 +19,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['user_name'] = $user->full_name;
         $_SESSION['user_role'] = $user->role;
         $_SESSION['user_email'] = $user->email;
+        $_SESSION['user_permissions'] = ($user->role === 'admin') ? ['all'] : explode(',', $user->permissions ?? '');
 
         // Redirect to dashboard
         redirect('/dashboard.php');
     } else {
-        // Invalid credentials
-        redirect('/index.php?error=invalid');
+        // Try checking members table
+        $stmt = $pdo->prepare("SELECT * FROM members WHERE email = ? LIMIT 1");
+        $stmt->execute([$email]);
+        $member = $stmt->fetch();
+        
+        if ($member && ($member->password !== null && password_verify($password, $member->password))) {
+            $_SESSION['user_id'] = $member->id;
+            $_SESSION['user_name'] = $member->full_name;
+            $_SESSION['user_role'] = 'member';
+            $_SESSION['user_email'] = $member->email;
+            redirect('/member_panel/index.php');
+        } else {
+            // Invalid credentials
+            redirect('/index.php?error=invalid');
+        }
     }
 } else {
     redirect('/index.php');

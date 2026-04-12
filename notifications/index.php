@@ -3,12 +3,7 @@
 $pageTitle = 'Notifications';
 require_once '../includes/header.php';
 
-// A simple script to run to find expired memberships that haven't been tagged explicitly.
-// In a real application, this might run via a cron job.
 $today = date('Y-m-d');
-
-// 1. Update status to Expired if end_date has passed
-$pdo->query("UPDATE memberships SET status = 'Expired' WHERE end_date < '$today' AND status = 'Active'");
 
 // 2. Fetch members needing attention
 $sql = "SELECT ms.*, m.full_name, m.email, m.phone, mp.plan_name 

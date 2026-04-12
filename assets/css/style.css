@@ -244,6 +244,8 @@ tr:hover {
 }
 .badge-active, .badge-paid { background: rgba(40, 167, 69, 0.2); color: var(--success); }
 .badge-expired, .badge-pending { background: rgba(220, 53, 69, 0.2); color: var(--danger); }
+.badge-inactive { background: rgba(160, 160, 176, 0.2); color: var(--text-muted); }
+.badge-suspended { background: rgba(255, 193, 7, 0.2); color: var(--warning); }
 
 /* Buttons */
 .btn {

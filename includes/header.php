@@ -5,7 +5,26 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/functions.php';
 
 require_login();
+if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'member') {
+    redirect('/member_panel/index.php');
+}
+
+// Automatically enforce module permissions based on folder structure
+$current_dir = basename(dirname($_SERVER['PHP_SELF']));
+$protected_modules = ['members', 'plans', 'payments', 'attendance', 'reports'];
+if (in_array($current_dir, $protected_modules)) {
+    if (!has_permission($current_dir)) {
+        redirect('/dashboard.php?error=unauthorized');
+    }
+}
+
 $settings = getGymSettings($pdo);
+
+// Auto-check and update expired memberships and members globally
+$today = date('Y-m-d');
+$pdo->query("UPDATE memberships SET status = 'Expired' WHERE end_date < '$today' AND status = 'Active'");
+$pdo->query("UPDATE members SET status = 'Expired' WHERE status = 'Active' AND id NOT IN (SELECT member_id FROM memberships WHERE status = 'Active')");
+
 $pageTitle = $pageTitle ?? 'Dashboard';
 ?>
 <!DOCTYPE html>

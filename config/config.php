@@ -33,4 +33,22 @@ function require_admin() {
         redirect('/dashboard.php?error=unauthorized');
     }
 }
+
+// Check module permission
+function has_permission($module) {
+    if (!isset($_SESSION['user_role'])) return false;
+    if ($_SESSION['user_role'] === 'admin') return true;
+    if ($_SESSION['user_role'] === 'member') return false;
+    
+    $perms = $_SESSION['user_permissions'] ?? [];
+    return in_array($module, $perms);
+}
+
+// Require module access
+function require_permission($module) {
+    require_login();
+    if (!has_permission($module)) {
+        redirect('/dashboard.php?error=unauthorized');
+    }
+}
 ?>
