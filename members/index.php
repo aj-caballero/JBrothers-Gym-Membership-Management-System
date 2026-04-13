@@ -4,54 +4,68 @@ $pageTitle = 'Members';
 require_once '../includes/header.php';
 
 // Pagination and Search
-$page = $_GET['page'] ?? 1;
-$limit = 10;
+$page   = max(1, (int)($_GET['page'] ?? 1));
+$limit  = 10;
 $offset = ($page - 1) * $limit;
 
-$search = $_GET['search'] ?? '';
-$searchQuery = "";
-$params = [];
+$search      = trim($_GET['search'] ?? '');
+$statusFilter = $_GET['status'] ?? '';
+$params      = [];
+$whereParts  = [];
 
 if (!empty($search)) {
-    $searchQuery = "WHERE full_name LIKE ? OR email LIKE ? OR phone LIKE ?";
-    $params = ["%$search%", "%$search%", "%$search%"];
+    $whereParts[] = "(full_name LIKE ? OR email LIKE ? OR phone LIKE ?)";
+    $params = array_merge($params, ["%$search%", "%$search%", "%$search%"]);
 }
+if (!empty($statusFilter)) {
+    $whereParts[] = "status = ?";
+    $params[] = $statusFilter;
+}
+$whereSQL = $whereParts ? 'WHERE ' . implode(' AND ', $whereParts) : '';
 
-// Get total for pagination
-$stmtTotal = $pdo->prepare("SELECT COUNT(*) as total FROM members $searchQuery");
+// Total for pagination
+$stmtTotal = $pdo->prepare("SELECT COUNT(*) as total FROM members $whereSQL");
 $stmtTotal->execute($params);
-$total = $stmtTotal->fetch()->total;
+$total      = $stmtTotal->fetch()->total;
 $totalPages = ceil($total / $limit);
 
-// Get records
-$sql = "SELECT * FROM members $searchQuery ORDER BY id DESC LIMIT $limit OFFSET $offset";
-$stmt = $pdo->prepare($sql);
+// Records
+$stmt = $pdo->prepare("SELECT * FROM members $whereSQL ORDER BY id DESC LIMIT $limit OFFSET $offset");
 $stmt->execute($params);
 $members = $stmt->fetchAll();
 ?>
 
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title">All Members</h3>
+        <span class="card-title">All Members <span style="color:var(--text-muted);font-weight:400;font-size:13px;">(<?= number_format($total) ?>)</span></span>
         <a href="add.php" class="btn btn-primary"><i class="fas fa-plus"></i> Add Member</a>
     </div>
 
-    <form method="GET" class="form-row" style="margin-bottom: 20px;">
-        <div class="form-group" style="flex: 2;">
-            <input type="text" name="search" class="form-control" placeholder="Search by name, email, or phone..." value="<?= htmlspecialchars($search) ?>">
+    <!-- Filters -->
+    <form method="GET" style="display:flex;gap:10px;align-items:center;padding:14px 22px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+        <div class="input-group" style="flex:1;min-width:200px;">
+            <i class="input-icon fas fa-magnifying-glass"></i>
+            <input type="text" name="search" class="form-control" placeholder="Search name, email, or phone…" value="<?= htmlspecialchars($search) ?>">
         </div>
-        <div class="form-group" style="flex: 0;">
-            <button type="submit" class="btn btn-primary">Search</button>
-        </div>
+        <select name="status" class="form-control" style="width:160px;">
+            <option value="">All Statuses</option>
+            <option value="Active"    <?= $statusFilter==='Active'    ? 'selected' : '' ?>>Active</option>
+            <option value="Inactive"  <?= $statusFilter==='Inactive'  ? 'selected' : '' ?>>Inactive</option>
+            <option value="Expired"   <?= $statusFilter==='Expired'   ? 'selected' : '' ?>>Expired</option>
+            <option value="Suspended" <?= $statusFilter==='Suspended' ? 'selected' : '' ?>>Suspended</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <?php if ($search || $statusFilter): ?>
+            <a href="index.php" class="btn btn-ghost">Clear</a>
+        <?php endif; ?>
     </form>
 
     <div class="table-responsive">
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Email</th>
+                    <th>#</th>
+                    <th>Member</th>
                     <th>Phone</th>
                     <th>Join Date</th>
                     <th>Status</th>
@@ -61,38 +75,66 @@ $members = $stmt->fetchAll();
             <tbody>
                 <?php foreach ($members as $member): ?>
                     <tr>
-                        <td><?= $member->id ?></td>
-                        <td><?= htmlspecialchars($member->full_name) ?></td>
-                        <td><?= htmlspecialchars($member->email) ?></td>
-                        <td><?= htmlspecialchars($member->phone) ?></td>
-                        <td><?= formatDate($member->join_date) ?></td>
+                        <td class="td-muted"><?= $member->id ?></td>
+                        <td>
+                            <div class="td-name"><?= htmlspecialchars($member->full_name) ?></div>
+                            <div class="td-muted" style="font-size:12px;"><?= htmlspecialchars($member->email) ?></div>
+                        </td>
+                        <td class="td-muted"><?= htmlspecialchars($member->phone ?: '—') ?></td>
+                        <td class="td-muted"><?= formatDate($member->join_date) ?></td>
                         <td>
                             <span class="badge badge-<?= strtolower($member->status) ?>">
                                 <?= $member->status ?>
                             </span>
                         </td>
                         <td>
-                            <a href="view.php?id=<?= $member->id ?>" class="btn btn-sm" style="background:#17a2b8; color:#fff;" title="View"><i class="fas fa-eye"></i></a>
-                            <a href="edit.php?id=<?= $member->id ?>" class="btn btn-sm" style="background:#ffc107; color:#000;" title="Edit"><i class="fas fa-edit"></i></a>
-                            <?php if ($_SESSION['user_role'] === 'admin'): ?>
-                                <a href="delete.php?id=<?= $member->id ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure? This cannot be undone.');" title="Delete"><i class="fas fa-trash"></i></a>
-                            <?php endif; ?>
+                            <div style="display:flex;gap:6px;">
+                                <a href="view.php?id=<?= $member->id ?>" class="btn btn-ghost btn-sm" title="View"><i class="fas fa-eye"></i></a>
+                                <a href="edit.php?id=<?= $member->id ?>" class="btn btn-ghost btn-sm" title="Edit"><i class="fas fa-pen"></i></a>
+                                <a href="<?= APP_URL ?>/payments/add.php?member_id=<?= $member->id ?>" class="btn btn-ghost btn-sm" title="Record Payment"><i class="fas fa-credit-card"></i></a>
+                                <?php if ($_SESSION['user_role'] === 'admin'): ?>
+                                    <a href="delete.php?id=<?= $member->id ?>" class="btn btn-danger btn-sm"
+                                       onclick="return confirm('Delete <?= htmlspecialchars(addslashes($member->full_name)) ?>? This cannot be undone.')"
+                                       title="Delete"><i class="fas fa-trash"></i></a>
+                                <?php endif; ?>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
+
                 <?php if (empty($members)): ?>
-                    <tr><td colspan="7">No members found.</td></tr>
+                    <tr><td colspan="6">
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fas fa-users"></i></div>
+                            <h3><?= $search || $statusFilter ? 'No matches found' : 'No members yet' ?></h3>
+                            <p><?= $search || $statusFilter ? 'Try adjusting your search or filter.' : 'Add your first member to get started.' ?></p>
+                            <?php if (!$search && !$statusFilter): ?>
+                                <a href="add.php" class="btn btn-primary"><i class="fas fa-plus"></i> Add Member</a>
+                            <?php endif; ?>
+                        </div>
+                    </td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
-    
-    <!-- Basic Pagination -->
+
+    <!-- Pagination -->
     <?php if ($totalPages > 1): ?>
-        <div style="margin-top: 20px; text-align: center;">
+        <div class="pagination">
+            <?php if ($page > 1): ?>
+                <a href="?page=<?= $page-1 ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($statusFilter) ?>">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+            <?php endif; ?>
             <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                <a href="?page=<?= $i ?>&search=<?= urlencode($search) ?>" class="btn btn-sm <?= ($page == $i) ? 'btn-primary' : '' ?>" style="border: 1px solid var(--border);"><?= $i ?></a>
+                <a href="?page=<?= $i ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($statusFilter) ?>"
+                   class="<?= $i === $page ? 'active' : '' ?>"><?= $i ?></a>
             <?php endfor; ?>
+            <?php if ($page < $totalPages): ?>
+                <a href="?page=<?= $page+1 ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($statusFilter) ?>">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 </div>

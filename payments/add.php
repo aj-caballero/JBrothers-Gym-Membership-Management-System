@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-row">
             <div class="form-group">
                 <label>Amount Paid</label>
-                <input type="number" step="0.01" name="amount" id="amount" class="form-control" required>
+                <input type="number" step="0.01" name="amount" id="amount" class="form-control" required readonly>
             </div>
             <div class="form-group">
                 <label>Payment Method</label>
@@ -110,13 +110,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
-function updateAmount() {
-    var planSelect = document.getElementById('plan_id');
-    var amountInput = document.getElementById('amount');
-    var selectedOption = planSelect.options[planSelect.selectedIndex];
-    var price = selectedOption.getAttribute('data-price');
-    amountInput.value = price;
-}
+    function updateAmount() {
+        var planSelect = document.getElementById('plan_id');
+        var amountInput = document.getElementById('amount');
+        var selectedOption = planSelect.options[planSelect.selectedIndex];
+        var price = selectedOption.getAttribute('data-price');
+        amountInput.value = price;
+    }
 </script>
 
 <?php require_once '../includes/footer.php'; ?>
