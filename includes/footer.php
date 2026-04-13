@@ -6,19 +6,35 @@
     </div> <!-- End app-container -->
 
     <script>
-    // Sidebar toggle for mobile
+    // Sidebar toggle — desktop collapses, mobile slides in
     const sidebarToggle = document.getElementById('sidebar-toggle');
-    const sidebar = document.getElementById('sidebar');
-    if (sidebarToggle && sidebar) {
+    const sidebar       = document.getElementById('sidebar');
+    const appContainer  = document.querySelector('.app-container');
+
+    if (sidebarToggle && sidebar && appContainer) {
         sidebarToggle.addEventListener('click', () => {
-            sidebar.classList.toggle('open');
+            if (window.innerWidth > 1024) {
+                // Desktop: collapse/expand by toggling class on the container
+                appContainer.classList.toggle('sidebar-collapsed');
+            } else {
+                // Mobile: slide in/out by toggling class on the sidebar itself
+                sidebar.classList.toggle('open');
+            }
         });
-        // Close on outside click (mobile)
+
+        // Close sidebar on outside click (mobile only)
         document.addEventListener('click', (e) => {
             if (window.innerWidth <= 1024 && sidebar.classList.contains('open')) {
                 if (!sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
                     sidebar.classList.remove('open');
                 }
+            }
+        });
+
+        // When resizing from mobile → desktop, clean up mobile open state
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 1024) {
+                sidebar.classList.remove('open');
             }
         });
     }

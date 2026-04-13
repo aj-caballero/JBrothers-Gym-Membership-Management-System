@@ -218,6 +218,15 @@ a:hover { color: var(--accent); }
     margin-left: var(--sidebar-width);
     min-height: 100vh;
     overflow-x: hidden;
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Desktop sidebar collapse — toggled by JS on .app-container */
+.app-container.sidebar-collapsed .sidebar {
+    transform: translateX(-100%);
+}
+.app-container.sidebar-collapsed .main-content {
+    margin-left: 0;
 }
 
 /* ── Topbar ──────────────────────────────────────────────────── */
@@ -837,6 +846,16 @@ select.form-control option { background: var(--bg-elevated); }
     .sidebar.open {
         transform: translateX(0);
         box-shadow: var(--shadow-lg);
+    }
+    /* Reset desktop collapse on mobile — open class controls it instead */
+    .app-container.sidebar-collapsed .sidebar {
+        transform: translateX(-100%);
+    }
+    .app-container.sidebar-collapsed .sidebar.open {
+        transform: translateX(0);
+    }
+    .app-container.sidebar-collapsed .main-content {
+        margin-left: 0;
     }
     .main-content { margin-left: 0; }
 

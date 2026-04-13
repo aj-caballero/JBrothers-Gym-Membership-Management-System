@@ -60,20 +60,6 @@ $initials = strtoupper(substr($nameParts[0], 0, 1) . (isset($nameParts[1]) ? sub
                 </div>
 
                 <div class="topbar-right">
-                    <!-- Search -->
-                    <div class="topbar-search">
-                        <i class="fas fa-magnifying-glass"></i>
-                        <input type="text" placeholder="Search…" aria-label="Global search">
-                    </div>
-
-                    <div class="topbar-divider"></div>
-
-                    <!-- Notifications -->
-                    <button class="btn-icon" title="Notifications">
-                        <i class="fas fa-bell"></i>
-                        <span class="notif-dot"></span>
-                    </button>
-
                     <!-- User profile chip -->
                     <div class="user-chip">
                         <div class="user-avatar"><?= $initials ?></div>
