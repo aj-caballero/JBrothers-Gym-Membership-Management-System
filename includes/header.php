@@ -24,7 +24,7 @@ $settings = getGymSettings($pdo);
 $today = date('Y-m-d');
 $expireStmt = $pdo->prepare("UPDATE memberships SET status = 'Expired' WHERE end_date < ? AND status = 'Active'");
 $expireStmt->execute([$today]);
-$pdo->query("UPDATE members SET status = 'Expired' WHERE status = 'Active' AND id NOT IN (SELECT member_id FROM memberships WHERE status = 'Active')");
+$pdo->query("UPDATE members SET status = 'Expired' WHERE status = 'Active' AND deleted_at IS NULL AND id NOT IN (SELECT member_id FROM memberships WHERE status = 'Active')");
 
 $pageTitle = $pageTitle ?? 'Dashboard';
 

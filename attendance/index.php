@@ -48,8 +48,8 @@ $todayStr = date('Y-m-d');
 $logsStmt = $pdo->query("SELECT a.*, m.full_name FROM attendance_logs a JOIN members m ON a.member_id = m.id WHERE DATE(a.time_in) = '$todayStr' ORDER BY a.time_in DESC LIMIT 10");
 $recentLogs = $logsStmt->fetchAll();
 
-// Get active members for dropdown
-$membersStmt = $pdo->query("SELECT id, full_name, phone FROM members WHERE status = 'Active' ORDER BY full_name ASC");
+// Get active members for dropdown (exclude archived)
+$membersStmt = $pdo->query("SELECT id, full_name, phone FROM members WHERE status = 'Active' AND deleted_at IS NULL ORDER BY full_name ASC");
 $activeMembers = $membersStmt->fetchAll();
 ?>
 

@@ -13,6 +13,9 @@ $statusFilter = $_GET['status'] ?? '';
 $params      = [];
 $whereParts  = [];
 
+// Always exclude archived members
+$whereParts[] = "deleted_at IS NULL";
+
 if (!empty($search)) {
     $whereParts[] = "(full_name LIKE ? OR email LIKE ? OR phone LIKE ?)";
     $params = array_merge($params, ["%$search%", "%$search%", "%$search%"]);
@@ -21,7 +24,7 @@ if (!empty($statusFilter)) {
     $whereParts[] = "status = ?";
     $params[] = $statusFilter;
 }
-$whereSQL = $whereParts ? 'WHERE ' . implode(' AND ', $whereParts) : '';
+$whereSQL = 'WHERE ' . implode(' AND ', $whereParts);
 
 // Total for pagination
 $stmtTotal = $pdo->prepare("SELECT COUNT(*) as total FROM members $whereSQL");
@@ -38,7 +41,10 @@ $members = $stmt->fetchAll();
 <div class="card">
     <div class="card-header">
         <span class="card-title">All Members <span style="color:var(--text-muted);font-weight:400;font-size:13px;">(<?= number_format($total) ?>)</span></span>
-        <a href="add.php" class="btn btn-primary"><i class="fas fa-plus"></i> Add Member</a>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <a href="archived.php" class="btn btn-ghost btn-sm"><i class="fas fa-box-archive"></i> Archived</a>
+            <a href="add.php" class="btn btn-primary"><i class="fas fa-plus"></i> Add Member</a>
+        </div>
     </div>
 
     <!-- Filters -->

@@ -6,10 +6,10 @@ require_once '../includes/header.php';
 // Pre-fill member if passed
 $pre_member_id = $_GET['member_id'] ?? 0;
 
-$membersStmt = $pdo->query("SELECT id, full_name, email FROM members WHERE status != 'Suspended' ORDER BY full_name ASC");
+$membersStmt = $pdo->query("SELECT id, full_name, email FROM members WHERE status != 'Suspended' AND deleted_at IS NULL ORDER BY full_name ASC");
 $members = $membersStmt->fetchAll();
 
-$plansStmt = $pdo->query("SELECT * FROM membership_plans ORDER BY price ASC");
+$plansStmt = $pdo->query("SELECT * FROM membership_plans WHERE deleted_at IS NULL ORDER BY price ASC");
 $plans = $plansStmt->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

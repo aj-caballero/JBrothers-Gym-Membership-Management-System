@@ -3,7 +3,7 @@
 $pageTitle = 'Membership Plans';
 require_once '../includes/header.php';
 
-$stmt = $pdo->query("SELECT * FROM membership_plans ORDER BY id ASC");
+$stmt = $pdo->query("SELECT * FROM membership_plans WHERE deleted_at IS NULL ORDER BY id ASC");
 $plans = $stmt->fetchAll();
 ?>
 
@@ -11,7 +11,10 @@ $plans = $stmt->fetchAll();
     <div class="card-header">
         <h3 class="card-title">Available Plans</h3>
         <?php if ($_SESSION['user_role'] === 'admin'): ?>
-            <a href="add.php" class="btn btn-primary"><i class="fas fa-plus"></i> Create Plan</a>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <a href="archived.php" class="btn btn-ghost btn-sm"><i class="fas fa-box-archive"></i> Archived</a>
+                <a href="add.php" class="btn btn-primary"><i class="fas fa-plus"></i> Create Plan</a>
+            </div>
         <?php endif; ?>
     </div>
 
