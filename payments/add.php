@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <form method="POST">
         <div class="form-group">
             <label>Select Member</label>
-            <select name="member_id" class="form-control" required>
+            <select name="member_id" class="form-control searchable-select" required>
                 <option value="">-- Choose Member --</option>
                 <?php foreach ($members as $m): ?>
                     <option value="<?= $m->id ?>" <?= $m->id == $pre_member_id ? 'selected' : '' ?>>

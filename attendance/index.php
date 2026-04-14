@@ -73,7 +73,7 @@ $activeMembers = $membersStmt->fetchAll();
             <form method="POST">
                 <div class="form-group">
                     <label>Select Member</label>
-                    <select name="member_id" class="form-control" required autofocus>
+                    <select name="member_id" class="form-control searchable-select" required autofocus>
                         <option value="">-- Choose Member --</option>
                         <?php foreach ($activeMembers as $m): ?>
                             <option value="<?= $m->id ?>">

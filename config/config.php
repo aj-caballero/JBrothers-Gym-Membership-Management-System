@@ -12,6 +12,7 @@ date_default_timezone_set('Asia/Manila');
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+ob_start(); // Buffer output to prevent "headers already sent" errors on redirects
 
 // Redirect helper
 function redirect($path) {
