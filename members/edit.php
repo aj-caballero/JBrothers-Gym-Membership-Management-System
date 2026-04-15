@@ -11,6 +11,37 @@ $member = $stmt->fetch();
 if (!$member) redirect('/members/index.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $form_action   = trim((string) ($_POST['form_action'] ?? 'update'));
+
+    if ($form_action === 'revoke_membership') {
+        try {
+            $pdo->beginTransaction();
+
+            $activeStmt = $pdo->prepare("SELECT id FROM memberships WHERE member_id = ? AND status = 'Active' FOR UPDATE");
+            $activeStmt->execute([$id]);
+            $activeMemberships = $activeStmt->fetchAll();
+
+            if (empty($activeMemberships)) {
+                throw new Exception('No active membership found to revoke.');
+            }
+
+            $cancelStmt = $pdo->prepare("UPDATE memberships SET status = 'Cancelled' WHERE member_id = ? AND status = 'Active'");
+            $cancelStmt->execute([$id]);
+
+            $memberStatusStmt = $pdo->prepare("UPDATE members SET status = 'Inactive' WHERE id = ?");
+            $memberStatusStmt->execute([$id]);
+
+            $pdo->commit();
+            redirect('/members/edit.php?id=' . $id . '&revoked=1');
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $error = $e->getMessage();
+        }
+    }
+
+    if ($form_action !== 'revoke_membership') {
     $full_name     = trim($_POST['full_name']);
     $email         = trim($_POST['email']);
     $phone         = trim($_POST['phone']);
@@ -67,6 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+    }
 }
 
 $photoUrl = getMemberPhotoUrl($member->photo_path);
@@ -81,8 +113,12 @@ $photoUrl = getMemberPhotoUrl($member->photo_path);
     <?php if (isset($error)): ?>
         <div class="alert alert-danger" style="margin:16px 22px 0;"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
+    <?php if (!empty($_GET['revoked'])): ?>
+        <div class="alert alert-success" style="margin:16px 22px 0;">Membership revoked successfully. Active memberships were cancelled.</div>
+    <?php endif; ?>
 
     <form method="POST" enctype="multipart/form-data" style="padding:22px;">
+        <input type="hidden" name="form_action" value="update">
 
         <!-- Membership ID display -->
         <div class="form-group">
@@ -184,7 +220,16 @@ $photoUrl = getMemberPhotoUrl($member->photo_path);
             <textarea name="address" class="form-control" rows="3"><?= htmlspecialchars($member->address) ?></textarea>
         </div>
 
-        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Update Member</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Update Member</button>
+            <button type="submit"
+                    class="btn btn-danger"
+                    name="form_action"
+                    value="revoke_membership"
+                    onclick="return confirm('Revoke this member\'s active membership now? This will cancel active plans and set status to Inactive.');">
+                <i class="fas fa-user-slash"></i> Revoke Membership
+            </button>
+        </div>
     </form>
 </div>
 

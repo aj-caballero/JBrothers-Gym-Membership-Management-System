@@ -8,12 +8,19 @@ require_login();
 $id = $_GET['id'] ?? 0;
 $settings = getGymSettings($pdo);
 
-$sql = "SELECT p.*, m.full_name, m.email, mp.plan_name, ms.start_date, ms.end_date 
-        FROM payments p 
-        JOIN members m ON p.member_id = m.id 
-        LEFT JOIN memberships ms ON p.membership_id = ms.id
-        LEFT JOIN membership_plans mp ON ms.plan_id = mp.id
-        WHERE p.id = ?";
+$hasRequestedPlanColumn = dbHasColumn($pdo, 'payments', 'requested_plan_id');
+
+$sql = "SELECT p.*, m.full_name, m.email, "
+    . ($hasRequestedPlanColumn
+        ? "COALESCE(mp.plan_name, mp_req.plan_name) AS plan_name, "
+        : "mp.plan_name AS plan_name, ")
+    . "ms.start_date, ms.end_date
+       FROM payments p
+       JOIN members m ON p.member_id = m.id
+       LEFT JOIN memberships ms ON p.membership_id = ms.id
+       LEFT JOIN membership_plans mp ON ms.plan_id = mp.id "
+    . ($hasRequestedPlanColumn ? "LEFT JOIN membership_plans mp_req ON p.requested_plan_id = mp_req.id " : "")
+    . "WHERE p.id = ?";
 $stmt = $pdo->prepare($sql);
 $stmt->execute([$id]);
 $pay = $stmt->fetch();
@@ -89,8 +96,23 @@ if (!$pay) {
 
     <div class="row mt-2">
         <span>Payment Method:</span>
-        <span><?= $pay->payment_method ?></span>
+        <span><?= htmlspecialchars($pay->payment_method) ?></span>
     </div>
+
+    <?php if (property_exists($pay, 'gateway_transaction_id') && !empty($pay->gateway_transaction_id)): ?>
+        <div class="row mt-2">
+            <span>Gateway:</span>
+            <span><?= htmlspecialchars((property_exists($pay, 'gateway') ? $pay->gateway : 'MangoPay') ?? 'MangoPay') ?></span>
+        </div>
+        <div class="row mt-2">
+            <span>Gateway Ref:</span>
+            <span><?= htmlspecialchars($pay->gateway_transaction_id) ?></span>
+        </div>
+        <div class="row mt-2">
+            <span>Gateway Status:</span>
+            <span><?= htmlspecialchars($pay->gateway_status ?? 'N/A') ?></span>
+        </div>
+    <?php endif; ?>
 
     <div class="footer">
         <p>Thank you for your payment!</p>

@@ -71,12 +71,18 @@ CREATE TABLE memberships (
 CREATE TABLE payments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     member_id INT NOT NULL,
+    requested_plan_id INT NULL,
     membership_id INT,
     amount DECIMAL(10,2) NOT NULL,
-    payment_method ENUM('Cash', 'GCash', 'Card') NOT NULL,
+    payment_method ENUM('Cash', 'GCash', 'Card', 'MangoPay') NOT NULL,
+    gateway VARCHAR(50) NULL,
+    gateway_transaction_id VARCHAR(80) NULL,
+    gateway_status VARCHAR(30) NULL,
+    gateway_payload TEXT NULL,
     payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('Paid', 'Pending') DEFAULT 'Paid',
+    status ENUM('Paid', 'Pending', 'Cancelled') DEFAULT 'Paid',
     FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+    FOREIGN KEY (requested_plan_id) REFERENCES membership_plans(id) ON DELETE SET NULL,
     FOREIGN KEY (membership_id) REFERENCES memberships(id) ON DELETE SET NULL
 );
 

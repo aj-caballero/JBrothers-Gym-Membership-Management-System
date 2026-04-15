@@ -12,36 +12,131 @@ $members = $membersStmt->fetchAll();
 $plansStmt = $pdo->query("SELECT * FROM membership_plans WHERE deleted_at IS NULL ORDER BY price ASC");
 $plans = $plansStmt->fetchAll();
 
+$supportsMangoMethod = paymentsSupportsMangoPay($pdo);
+$hasRequestedPlanColumn = dbHasColumn($pdo, 'payments', 'requested_plan_id');
+$hasGatewayColumns = dbHasColumn($pdo, 'payments', 'gateway')
+    && dbHasColumn($pdo, 'payments', 'gateway_transaction_id')
+    && dbHasColumn($pdo, 'payments', 'gateway_status')
+    && dbHasColumn($pdo, 'payments', 'gateway_payload');
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $member_id = (int) $_POST['member_id'];
     $plan_id = (int) $_POST['plan_id'];
     $amount = (float) $_POST['amount'];
-    $method = $_POST['payment_method'];
+    $method = trim((string) ($_POST['payment_method'] ?? 'Cash'));
+    $mangoOutcome = trim((string) ($_POST['mangopay_outcome'] ?? 'succeeded'));
 
     if ($member_id > 0 && $plan_id > 0 && $amount >= 0) {
         try {
             $pdo->beginTransaction();
 
+            $memberStmt = $pdo->prepare("SELECT full_name, email FROM members WHERE id = ? LIMIT 1");
+            $memberStmt->execute([$member_id]);
+            $memberInfo = $memberStmt->fetch();
+            if (!$memberInfo) {
+                throw new Exception('Selected member was not found.');
+            }
+
             // 1. Get plan details for duration
             $planStmt = $pdo->prepare("SELECT duration_days FROM membership_plans WHERE id = ?");
             $planStmt->execute([$plan_id]);
             $plan = $planStmt->fetch();
+            if (!$plan) {
+                throw new Exception('Selected plan was not found.');
+            }
 
             $start_date = date('Y-m-d');
             $end_date = date('Y-m-d', strtotime("+$plan->duration_days days"));
 
-            // 2. Create Membership Record
-            $msStmt = $pdo->prepare("INSERT INTO memberships (member_id, plan_id, start_date, end_date, status) VALUES (?, ?, ?, ?, 'Active')");
-            $msStmt->execute([$member_id, $plan_id, $start_date, $end_date]);
-            $membership_id = $pdo->lastInsertId();
+            $gateway = null;
+            $gatewayTxnId = null;
+            $gatewayStatus = null;
+            $gatewayPayload = null;
+            $paymentStatus = 'Paid';
+            $membership_id = null;
 
-            // 3. Create Payment Record
-            $payStmt = $pdo->prepare("INSERT INTO payments (member_id, membership_id, amount, payment_method, payment_date, status) VALUES (?, ?, ?, ?, NOW(), 'Paid')");
-            $payStmt->execute([$member_id, $membership_id, $amount, $method]);
+            if ($method === 'MangoPay') {
+                if (!$supportsMangoMethod) {
+                    throw new Exception('MangoPay method is not yet available in this database. Run mangopay_simulation_migration.sql first.');
+                }
+                $sim = simulateMangoPayPayment($amount, $memberInfo->full_name ?? '', $memberInfo->email ?? '', $mangoOutcome);
+                $gateway = $sim['gateway'];
+                $gatewayTxnId = $sim['transaction_id'];
+                $gatewayStatus = $sim['gateway_status'];
+                $gatewayPayload = json_encode($sim);
+
+                if ($gatewayStatus === 'FAILED') {
+                    throw new Exception($sim['message'] . ' No membership was activated.');
+                }
+
+                if ($gatewayStatus === 'PENDING') {
+                    $paymentStatus = 'Pending';
+                }
+            }
+
+            if ($paymentStatus === 'Paid') {
+                // 2. Create Membership Record only for paid transactions
+                $msStmt = $pdo->prepare("INSERT INTO memberships (member_id, plan_id, start_date, end_date, status) VALUES (?, ?, ?, ?, 'Active')");
+                $msStmt->execute([$member_id, $plan_id, $start_date, $end_date]);
+                $membership_id = $pdo->lastInsertId();
+            }
+
+            // 3. Create Payment Record (schema-aware)
+            $columns = ['member_id'];
+            $params = [$member_id];
+
+            if ($hasRequestedPlanColumn) {
+                $columns[] = 'requested_plan_id';
+                $params[] = $plan_id;
+            }
+
+            $columns[] = 'membership_id';
+            $params[] = $membership_id;
+
+            $columns[] = 'amount';
+            $params[] = $amount;
+
+            $columns[] = 'payment_method';
+            $params[] = $method;
+
+            $columns[] = 'payment_date';
+            $columns[] = 'status';
+            $params[] = $paymentStatus;
+
+            if ($hasGatewayColumns) {
+                $columns[] = 'gateway';
+                $columns[] = 'gateway_transaction_id';
+                $columns[] = 'gateway_status';
+                $columns[] = 'gateway_payload';
+                $params[] = $gateway;
+                $params[] = $gatewayTxnId;
+                $params[] = $gatewayStatus;
+                $params[] = $gatewayPayload;
+            }
+
+            $placeholders = array_fill(0, count($params), '?');
+            $insertSql = "INSERT INTO payments (" . implode(', ', $columns) . ") VALUES (";
+
+            // payment_date uses NOW() while all others use parameter placeholders
+            $valueParts = [];
+            $paramIndex = 0;
+            foreach ($columns as $col) {
+                if ($col === 'payment_date') {
+                    $valueParts[] = 'NOW()';
+                } else {
+                    $valueParts[] = $placeholders[$paramIndex++];
+                }
+            }
+            $insertSql .= implode(', ', $valueParts) . ')';
+
+            $payStmt = $pdo->prepare($insertSql);
+            $payStmt->execute($params);
             $payment_id = $pdo->lastInsertId();
 
-            // 4. Update member status to active
-            $pdo->prepare("UPDATE members SET status = 'Active' WHERE id = ?")->execute([$member_id]);
+            // 4. Update member status only on successful payment
+            if ($paymentStatus === 'Paid') {
+                $pdo->prepare("UPDATE members SET status = 'Active' WHERE id = ?")->execute([$member_id]);
+            }
 
             $pdo->commit();
             redirect("/payments/receipt.php?id=$payment_id");
@@ -97,12 +192,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="form-group">
                 <label>Payment Method</label>
-                <select name="payment_method" class="form-control">
+                <select name="payment_method" id="payment_method" class="form-control" onchange="toggleMangoOptions()">
                     <option value="Cash">Cash</option>
                     <option value="GCash">GCash</option>
                     <option value="Card">Card</option>
+                    <?php if ($supportsMangoMethod): ?>
+                        <option value="MangoPay">MangoPay (Simulated)</option>
+                    <?php endif; ?>
                 </select>
+                <?php if (!$supportsMangoMethod): ?>
+                    <small style="color:var(--text-muted);display:block;margin-top:6px;">
+                        MangoPay simulation is hidden until migration is applied.
+                    </small>
+                <?php endif; ?>
             </div>
+        </div>
+
+        <div id="mangopay-sim-group" class="form-group" style="display:none;">
+            <label>MangoPay Simulation Outcome</label>
+            <select name="mangopay_outcome" class="form-control">
+                <option value="succeeded">Succeeded (membership activates)</option>
+                <option value="pending">Pending (payment recorded, no activation)</option>
+                <option value="failed">Failed (no record committed)</option>
+            </select>
+            <small style="color:var(--text-muted);display:block;margin-top:6px;">
+                Simulation mode lets staff test payment flows without real gateway calls.
+            </small>
         </div>
 
         <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Complete Transaction</button>
@@ -117,6 +232,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         var price = selectedOption.getAttribute('data-price');
         amountInput.value = price;
     }
+
+    function toggleMangoOptions() {
+        var method = document.getElementById('payment_method');
+        var simGroup = document.getElementById('mangopay-sim-group');
+        if (!method || !simGroup) return;
+        simGroup.style.display = method.value === 'MangoPay' ? 'block' : 'none';
+    }
+
+    toggleMangoOptions();
 </script>
 
 <?php require_once '../includes/footer.php'; ?>
