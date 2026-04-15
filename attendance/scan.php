@@ -16,7 +16,10 @@ function jsonResponse($success, $message, $extra = []) {
 }
 
 function parseMembershipCandidates($raw) {
-    $raw = trim((string) $raw);
+    $raw = (string) $raw;
+    // Remove control characters that can come from camera decoders.
+    $raw = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $raw);
+    $raw = trim($raw);
     if ($raw === '') {
         return [];
     }
@@ -49,6 +52,11 @@ function parseMembershipCandidates($raw) {
     // Support prefixed formats like MEMBER:GYM-2026-00001
     if (preg_match('/^(?:member(?:ship)?(?:_id)?|id)\s*[:=-]\s*(.+)$/i', $raw, $m)) {
         $candidates[] = trim($m[1]);
+    }
+
+    // Extract canonical membership pattern when embedded in larger text.
+    if (preg_match('/(GYM-\d{4}-\d{3,})/i', $raw, $m)) {
+        $candidates[] = strtoupper(trim($m[1]));
     }
 
     // Normalize and deduplicate candidates

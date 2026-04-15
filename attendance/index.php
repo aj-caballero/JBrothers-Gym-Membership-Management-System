@@ -68,51 +68,54 @@ $activeMembers = $membersStmt->fetchAll();
 .tab-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 .active-tab   { background: var(--accent-soft) !important; color: var(--accent-text) !important; }
 
-/* QR Scanner */
-#qr-preview-wrap {
-    position: relative;
+/* Scanner container — give it real dimensions so the library can render */
+#qr-reader {
     width: 100%;
+    min-height: 300px;
     border-radius: var(--radius-md);
     overflow: hidden;
     background: #000;
-    aspect-ratio: 4/3;
-    max-height: 340px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
-#qr-video {
+/* Style the library's internal video to fill the container */
+#qr-reader video {
+    width: 100% !important;
+    border-radius: var(--radius-md);
+}
+#qr-reader img {
+    display: none; /* hide the branding image */
+}
+
+/* File upload drop zone */
+.qr-dropzone {
+    border: 2px dashed var(--border-strong);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    text-align: center;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+.qr-dropzone:hover,
+.qr-dropzone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-text);
+}
+.qr-dropzone input[type="file"] {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    display: block;
+    opacity: 0;
+    cursor: pointer;
 }
-#qr-canvas { display: none; }
-.qr-aim-box {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 200px; height: 200px;
-    border: 3px solid rgba(255,255,255,0.7);
-    border-radius: 12px;
-    box-shadow: 0 0 0 9999px rgba(0,0,0,0.35);
-    pointer-events: none;
-    transition: border-color 0.2s;
+.qr-dropzone .preview-img {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: var(--radius-md);
+    margin-top: 10px;
 }
-.qr-aim-box.detected {
-    border-color: #22c55e;
-    box-shadow: 0 0 0 9999px rgba(0,0,0,0.35), 0 0 0 3px #22c55e;
-}
-#qr-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    color: var(--text-muted);
-    font-size: 14px;
-    padding: 40px 20px;
-}
-#qr-placeholder i { font-size: 40px; opacity: 0.4; }
 </style>
 
 <!-- Tab Bar -->
@@ -178,59 +181,51 @@ $activeMembers = $membersStmt->fetchAll();
 
                 <div style="padding:22px;">
 
-                    <!-- Camera preview -->
-                    <div id="qr-preview-wrap">
-                        <div id="qr-placeholder">
-                            <i class="fas fa-camera"></i>
-                            <span>Camera not started</span>
-                        </div>
-                        <video id="qr-video" autoplay playsinline muted style="display:none;"></video>
-                        <canvas id="qr-canvas"></canvas>
-                        <div class="qr-aim-box" id="qr-aim-box" style="display:none;"></div>
-                    </div>
+                    <!-- ===== 1. CAMERA SCANNER ===== -->
+                    <h4 style="margin:0 0 10px;font-size:14px;color:var(--text-secondary);"><i class="fas fa-video"></i> Camera Scanner</h4>
+                    <div id="qr-reader"></div>
 
-                    <!-- Controls -->
+                    <!-- Camera controls -->
                     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                        <button id="start-scan-btn" type="button" class="btn btn-primary btn-sm" onclick="startScanner()">
+                        <button id="start-scan-btn" type="button" class="btn btn-primary btn-sm" onclick="startCameraScanner()">
                             <i class="fas fa-play"></i> Start Camera
                         </button>
-                        <button id="stop-scan-btn" type="button" class="btn btn-ghost btn-sm" onclick="stopScanner()" style="display:none;">
-                            <i class="fas fa-stop"></i> Stop
-                        </button>
-                        <select id="camera-select" class="form-control" style="max-width:220px;flex:1;" onchange="switchCameraFromSelect()">
-                            <option value="">Auto-select camera</option>
-                        </select>
-                    </div>
-
-                    <!-- Image upload -->
-                    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                        <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
-                            <i class="fas fa-image"></i> Scan From Image
-                            <input type="file" id="qr-image-input" accept="image/*" style="display:none;" onchange="handleQrImageUpload(event)">
-                        </label>
-                    </div>
-
-                    <!-- Manual ID fallback -->
-                    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-                        <input type="text" id="scanner-membership-input" class="form-control" placeholder="Type membership ID (fallback)" style="max-width:280px;">
-                        <button type="button" class="btn btn-primary btn-sm" onclick="submitScannerMembershipId()">
-                            <i class="fas fa-paper-plane"></i> Process ID
+                        <button id="stop-scan-btn" type="button" class="btn btn-ghost btn-sm" onclick="stopCameraScanner()" style="display:none;">
+                            <i class="fas fa-stop"></i> Stop Camera
                         </button>
                     </div>
 
-                    <p style="color:var(--text-muted);font-size:12px;margin-top:10px;">
-                        <i class="fas fa-info-circle"></i>
-                        Click <strong>Start Camera</strong>, allow access, then aim at a QR code.
-                    </p>
+                    <hr style="margin:20px 0;border-color:var(--border);">
+
+                    <!-- ===== 2. FILE/IMAGE UPLOAD ===== -->
+                    <h4 style="margin:0 0 10px;font-size:14px;color:var(--text-secondary);"><i class="fas fa-image"></i> Scan from Image</h4>
+                    <div class="qr-dropzone" id="qr-dropzone">
+                        <input type="file" id="qr-file-input" accept="image/jpeg,image/png,image/gif,image/webp" onchange="scanFromFile(event)">
+                        <i class="fas fa-cloud-upload-alt" style="font-size:28px;display:block;margin-bottom:8px;"></i>
+                        <span>Drag & drop or click to upload a QR code image</span>
+                        <br><small style="opacity:0.6;">JPG, PNG, GIF, WebP supported</small>
+                        <div id="file-preview"></div>
+                    </div>
+
+                    <hr style="margin:20px 0;border-color:var(--border);">
+
+                    <!-- ===== 3. MANUAL ID FALLBACK ===== -->
+                    <h4 style="margin:0 0 10px;font-size:14px;color:var(--text-secondary);"><i class="fas fa-keyboard"></i> Manual Entry</h4>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <input type="text" id="manual-id-input" class="form-control" placeholder="Type membership ID" style="max-width:280px;" onkeydown="if(event.key==='Enter'){submitManualId();}">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="submitManualId()">
+                            <i class="fas fa-paper-plane"></i> Process
+                        </button>
+                    </div>
 
                     <!-- Debug panel -->
-                    <div id="scan-debug-panel" style="margin-top:12px;border:1px dashed var(--border-strong);border-radius:var(--radius-md);padding:10px 12px;background:var(--bg-input);">
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-                            <strong style="font-size:12px;color:var(--text-secondary);">Scanner Debug</strong>
-                            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleDebugLog()" style="padding:4px 8px;">Hide</button>
+                    <div style="margin-top:16px;border:1px dashed var(--border-strong);border-radius:var(--radius-md);padding:10px 12px;background:var(--bg-input);">
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <strong style="font-size:12px;color:var(--text-secondary);">Debug Log</strong>
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleDebug()" style="padding:4px 8px;font-size:11px;">Toggle</button>
                         </div>
-                        <div id="scan-debug-state" style="margin-top:6px;font-size:12px;color:var(--text-muted);">State: idle</div>
-                        <pre id="scan-debug-log" style="margin-top:8px;max-height:140px;overflow:auto;font-size:11px;line-height:1.4;white-space:pre-wrap;color:var(--text-secondary);">Waiting for scanner activity...</pre>
+                        <div id="debug-state" style="margin-top:4px;font-size:12px;color:var(--text-muted);">State: idle</div>
+                        <pre id="debug-log" style="margin-top:6px;max-height:120px;overflow:auto;font-size:11px;line-height:1.4;white-space:pre-wrap;color:var(--text-secondary);">Ready.</pre>
                     </div>
                 </div>
             </div>
@@ -297,243 +292,658 @@ $activeMembers = $membersStmt->fetchAll();
 
 </div>
 
-<!-- jsQR: pure-JS QR decoder -->
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<!-- ZXing primary decoder + jsQR fallback (local vendor files) -->
+<script src="../assets/js/vendor/zxing.min.js"></script>
+<script src="../assets/js/vendor/jsQR.min.js"></script>
 <script>
 (function() {
     'use strict';
 
-    /* ── State ──────────────────────────────────────────────── */
-    var running     = false;
-    var cooldown    = false;
-    var stream      = null;
-    var animId      = null;
-    var canvasCtx   = null;
-    var cameras     = [];
-    var chosenCamId = '';
-    var debugOn     = true;
+    var stream = null;
+    var videoEl = null;
+    var frameCanvas = null;
+    var frameCtx = null;
+    var fallbackLoopId = null;
+    var zxingReader = null;
+    var zxingControls = null;
+    var scanning = false;
+    var cooldown = false;
+    var lastPayload = '';
+    var lastPayloadAt = 0;
+    var debugVisible = true;
+    var scanAttemptCount = 0;
+    var scanNoResultCount = 0;
+    var assistScanCount = 0;
 
-    /* ── Cached DOM refs ───────────────────────────────────── */
-    var $video, $canvas, $placeholder, $aimBox;
-    var $startBtn, $stopBtn, $camSelect;
-    var $debugState, $debugLog, $feedback;
-
-    function el(id) { return document.getElementById(id); }
-
-    function grabRefs() {
-        $video       = el('qr-video');
-        $canvas      = el('qr-canvas');
-        $placeholder = el('qr-placeholder');
-        $aimBox      = el('qr-aim-box');
-        $startBtn    = el('start-scan-btn');
-        $stopBtn     = el('stop-scan-btn');
-        $camSelect   = el('camera-select');
-        $debugState  = el('scan-debug-state');
-        $debugLog    = el('scan-debug-log');
-        $feedback    = el('scan-feedback');
-    }
-
-    /* ── Debug helpers ─────────────────────────────────────── */
+    /* ── Debug ─────────────────────────────────────────────── */
     function setState(t) {
-        if ($debugState) $debugState.textContent = 'State: ' + t;
+        var el = document.getElementById('debug-state');
+        if (el) el.textContent = 'State: ' + t;
     }
 
     function log(t) {
         console.log('[QR]', t);
-        if (!$debugLog) return;
+        var el = document.getElementById('debug-log');
+        if (!el) return;
         var stamp = new Date().toLocaleTimeString();
         var line = '[' + stamp + '] ' + t;
-        if ($debugLog.textContent.indexOf('Waiting for') !== -1) {
-            $debugLog.textContent = line;
-        } else {
-            $debugLog.textContent = line + '\n' + $debugLog.textContent;
-        }
-        var lines = $debugLog.textContent.split('\n');
-        if (lines.length > 20) $debugLog.textContent = lines.slice(0, 20).join('\n');
+        el.textContent = line + '\n' + el.textContent;
+        var lines = el.textContent.split('\n');
+        if (lines.length > 300) el.textContent = lines.slice(0, 300).join('\n');
     }
+
+    window.toggleDebug = function() {
+        var el = document.getElementById('debug-log');
+        if (!el) return;
+        debugVisible = !debugVisible;
+        el.style.display = debugVisible ? 'block' : 'none';
+    };
 
     /* ── Tab switching ─────────────────────────────────────── */
     window.switchTab = function(tab) {
-        el('panel-manual').style.display  = tab === 'manual'  ? 'block' : 'none';
-        el('panel-scanner').style.display = tab === 'scanner' ? 'block' : 'none';
-        el('tab-manual').classList.toggle('active-tab',  tab === 'manual');
-        el('tab-scanner').classList.toggle('active-tab', tab === 'scanner');
-        if (tab === 'manual' && running) stopScanner();
-        setState(tab === 'scanner' ? 'click Start Camera' : 'manual tab');
+        document.getElementById('panel-manual').style.display  = tab === 'manual'  ? 'block' : 'none';
+        document.getElementById('panel-scanner').style.display = tab === 'scanner' ? 'block' : 'none';
+        document.getElementById('tab-manual').classList.toggle('active-tab',  tab === 'manual');
+        document.getElementById('tab-scanner').classList.toggle('active-tab', tab === 'scanner');
+        if (tab === 'manual' && scanning) stopCameraScanner();
+        setState(tab === 'scanner' ? 'ready — click Start Camera' : 'manual tab');
     };
 
-    window.toggleDebugLog = function() {
-        if (!$debugLog) return;
-        debugOn = !debugOn;
-        $debugLog.style.display = debugOn ? 'block' : 'none';
-    };
-
-    /* ── Camera enumeration ────────────────────────────────── */
-    function loadCameras() {
-        if (!navigator.mediaDevices) return;
-        navigator.mediaDevices.enumerateDevices().then(function(devs) {
-            cameras = devs.filter(function(d) { return d.kind === 'videoinput'; });
-            if (!$camSelect) return;
-            $camSelect.innerHTML = '<option value="">Auto-select camera</option>';
-            cameras.forEach(function(c, i) {
-                var opt = document.createElement('option');
-                opt.value = c.deviceId || '';
-                opt.textContent = c.label || ('Camera ' + (i + 1));
-                $camSelect.appendChild(opt);
-            });
-            if (chosenCamId) $camSelect.value = chosenCamId;
-            log('Found ' + cameras.length + ' camera(s).');
-        }).catch(function() {});
+    function cleanPayload(value) {
+        return String(value || '')
+            .replace(/[\u0000-\u001F\u007F]+/g, ' ')
+            .trim();
     }
 
-    window.switchCameraFromSelect = function() {
-        if (!$camSelect) return;
-        chosenCamId = $camSelect.value || '';
-        if (running) { stopScanner(); setTimeout(startScanner, 300); }
-    };
+    function extractMembershipId(value) {
+        var raw = cleanPayload(value);
+        if (!raw) return '';
 
-    /* ── START SCANNER ─────────────────────────────────────── */
-    function startScanner() {
-        if (running) return;
-        grabRefs();
+        var gymMatch = raw.match(/GYM-\d{4}-\d{3,}/i);
+        if (gymMatch && gymMatch[0]) return gymMatch[0].toUpperCase();
 
-        log('Requesting camera access...');
-        setState('requesting camera...');
+        var compact = raw.match(/[A-Za-z0-9_-]{4,}/);
+        return compact && compact[0] ? compact[0] : raw;
+    }
 
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            log('getUserMedia not available. Use HTTPS or localhost.');
-            setState('not supported');
-            showFeedback(false, 'Camera API not available. Use Chrome over HTTPS or localhost.');
+    function setScanButtons(isScanning) {
+        var startBtn = document.getElementById('start-scan-btn');
+        var stopBtn = document.getElementById('stop-scan-btn');
+        if (startBtn) startBtn.style.display = isScanning ? 'none' : 'inline-flex';
+        if (stopBtn) stopBtn.style.display = isScanning ? 'inline-flex' : 'none';
+    }
+
+    function ensureScannerSurface() {
+        var host = document.getElementById('qr-reader');
+        if (!host) return;
+
+        host.innerHTML = '';
+
+        videoEl = document.createElement('video');
+        videoEl.setAttribute('autoplay', 'autoplay');
+        videoEl.setAttribute('muted', 'muted');
+        videoEl.setAttribute('playsinline', 'playsinline');
+        videoEl.style.width = '100%';
+        videoEl.style.height = '100%';
+        videoEl.style.objectFit = 'cover';
+        videoEl.style.borderRadius = 'var(--radius-md)';
+        frameCanvas = document.createElement('canvas');
+        frameCanvas.style.display = 'none';
+        frameCtx = frameCanvas.getContext('2d', { willReadFrequently: true });
+        host.appendChild(videoEl);
+        host.appendChild(frameCanvas);
+    }
+
+    function supportsZXing() {
+        return typeof window.ZXing !== 'undefined' && typeof window.ZXing.BrowserMultiFormatReader !== 'undefined';
+    }
+
+    function ensureZXingReader() {
+        if (!supportsZXing()) return null;
+        if (!zxingReader) {
+            zxingReader = new window.ZXing.BrowserMultiFormatReader();
+        }
+        return zxingReader;
+    }
+
+    function getZXingScanConstraints(useFrontCamera) {
+        return {
+            audio: false,
+            video: {
+                facingMode: useFrontCamera ? 'user' : 'environment',
+                width: { ideal: 1920 },
+                height: { ideal: 1080 }
+            }
+        };
+    }
+
+    function stopStreamTracks() {
+        if (!stream) return;
+        stream.getTracks().forEach(function(track) {
+            try { track.stop(); } catch (e) {}
+        });
+        stream = null;
+    }
+
+    function supportsNativeBarcodeDetector() {
+        return typeof window.BarcodeDetector !== 'undefined';
+    }
+
+    function getCameraStream(useFrontCamera) {
+        return navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+                facingMode: useFrontCamera ? 'user' : 'environment',
+                width: { ideal: 1920 },
+                height: { ideal: 1080 }
+            }
+        }).catch(function() {
+            return navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+        });
+    }
+
+    function decodeCurrentFrameNative(detector) {
+        if (!videoEl || !frameCtx || !frameCanvas) return Promise.resolve('');
+        if (videoEl.readyState < 2) return Promise.resolve('');
+
+        var w = videoEl.videoWidth || 0;
+        var h = videoEl.videoHeight || 0;
+        if (!w || !h) return Promise.resolve('');
+
+        if (frameCanvas.width !== w || frameCanvas.height !== h) {
+            frameCanvas.width = w;
+            frameCanvas.height = h;
+        }
+
+        frameCtx.drawImage(videoEl, 0, 0, w, h);
+
+        return detector.detect(frameCanvas).then(function(codes) {
+            if (codes && codes.length && codes[0].rawValue) {
+                return String(codes[0].rawValue);
+            }
+
+            if (typeof jsQR !== 'undefined') {
+                return decodeJsqrMultiPassFromCanvas(frameCanvas, frameCtx, w, h);
+            }
+
+            return '';
+        }).catch(function() {
+            if (typeof jsQR !== 'undefined') {
+                return decodeJsqrMultiPassFromCanvas(frameCanvas, frameCtx, w, h);
+            }
+            return '';
+        });
+    }
+
+    function decodeJsqrData(imageData, width, height) {
+        if (typeof jsQR === 'undefined') return '';
+        var qr = jsQR(imageData.data, width, height, { inversionAttempts: 'attemptBoth' });
+        return qr && qr.data ? String(qr.data) : '';
+    }
+
+    function applyContrastToImageData(imageData, factor) {
+        var data = imageData.data;
+        for (var i = 0; i < data.length; i += 4) {
+            data[i] = Math.max(0, Math.min(255, ((data[i] - 128) * factor) + 128));
+            data[i + 1] = Math.max(0, Math.min(255, ((data[i + 1] - 128) * factor) + 128));
+            data[i + 2] = Math.max(0, Math.min(255, ((data[i + 2] - 128) * factor) + 128));
+        }
+        return imageData;
+    }
+
+    function decodeJsqrMultiPassFromCanvas(canvas, ctx, width, height) {
+        var fullData = ctx.getImageData(0, 0, width, height);
+        var decoded = decodeJsqrData(fullData, width, height);
+        if (decoded) return decoded;
+
+        var enhanced = applyContrastToImageData(ctx.getImageData(0, 0, width, height), 1.45);
+        decoded = decodeJsqrData(enhanced, width, height);
+        if (decoded) return decoded;
+
+        var cropScale = 0.65;
+        var cw = Math.floor(width * cropScale);
+        var ch = Math.floor(height * cropScale);
+        var cx = Math.floor((width - cw) / 2);
+        var cy = Math.floor((height - ch) / 2);
+        var centerData = ctx.getImageData(cx, cy, cw, ch);
+        decoded = decodeJsqrData(centerData, cw, ch);
+        if (decoded) return decoded;
+
+        var centerEnhanced = applyContrastToImageData(ctx.getImageData(cx, cy, cw, ch), 1.6);
+        decoded = decodeJsqrData(centerEnhanced, cw, ch);
+        return decoded || '';
+    }
+
+    function assistDecodeFromCurrentVideoFrame() {
+        if (!videoEl || !frameCtx || !frameCanvas) return '';
+        if (videoEl.readyState < 2) return '';
+
+        var w = videoEl.videoWidth || 0;
+        var h = videoEl.videoHeight || 0;
+        if (!w || !h) return '';
+
+        if (frameCanvas.width !== w || frameCanvas.height !== h) {
+            frameCanvas.width = w;
+            frameCanvas.height = h;
+        }
+
+        frameCtx.drawImage(videoEl, 0, 0, w, h);
+        assistScanCount += 1;
+        return decodeJsqrMultiPassFromCanvas(frameCanvas, frameCtx, w, h);
+    }
+
+    function startNativeFallbackScanner(useFrontCamera) {
+        if (!supportsNativeBarcodeDetector() && typeof jsQR === 'undefined') {
+            return Promise.reject(new Error('No local QR decoder available.'));
+        }
+
+        return getCameraStream(useFrontCamera).then(function(camStream) {
+            stream = camStream;
+            if (!videoEl) {
+                throw new Error('Video element is not ready.');
+            }
+            videoEl.srcObject = stream;
+            return videoEl.play();
+        }).then(function() {
+            var detector = supportsNativeBarcodeDetector() ? new window.BarcodeDetector({ formats: ['qr_code'] }) : null;
+
+            function nativeLoop() {
+                if (!scanning) return;
+                scanAttemptCount += 1;
+                setState('scanning attempt #' + scanAttemptCount + ' (native)');
+
+                var decodePromise;
+                if (detector) {
+                    decodePromise = decodeCurrentFrameNative(detector);
+                } else {
+                    decodePromise = Promise.resolve('');
+                }
+
+                decodePromise.then(function(decoded) {
+                    if (decoded) {
+                        log('Attempt #' + scanAttemptCount + ': QR detected -> ' + decoded);
+                        onScanSuccess(decoded);
+                    } else {
+                        scanNoResultCount += 1;
+                        log('Attempt #' + scanAttemptCount + ': no QR detected');
+                    }
+                }).catch(function(err) {
+                    log('Attempt #' + scanAttemptCount + ': decode error -> ' + (err && err.message ? err.message : err));
+                }).finally(function() {
+                    if (scanning) {
+                        fallbackLoopId = window.requestAnimationFrame(nativeLoop);
+                    }
+                });
+            }
+
+            nativeLoop();
+        });
+    }
+
+    function onDecodeCallback(result, err) {
+        scanAttemptCount += 1;
+        setState('scanning attempt #' + scanAttemptCount);
+
+        if (result && typeof result.getText === 'function') {
+            var text = String(result.getText() || '');
+            log('Attempt #' + scanAttemptCount + ': QR detected -> ' + text);
+            onScanSuccess(text);
             return;
         }
 
-        var constraints = chosenCamId
-            ? { video: { deviceId: { exact: chosenCamId } } }
-            : { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } };
+        if (err) {
+            var isNotFound = supportsZXing() && err instanceof window.ZXing.NotFoundException;
+            if (isNotFound) {
+                scanNoResultCount += 1;
+                log('Attempt #' + scanAttemptCount + ': no QR detected');
 
-        navigator.mediaDevices.getUserMedia(constraints)
-            .catch(function() {
-                log('Constraint failed, retrying { video: true }...');
-                return navigator.mediaDevices.getUserMedia({ video: true });
-            })
-            .then(function(s) {
-                stream = s;
-                $placeholder.style.display = 'none';
-                $video.style.display = 'block';
-                $video.srcObject = s;
-
-                $video.onloadedmetadata = function() {
-                    $video.play();
-                    running = true;
-                    if ($aimBox)   $aimBox.style.display = 'block';
-                    if ($startBtn) $startBtn.style.display = 'none';
-                    if ($stopBtn)  $stopBtn.style.display  = 'inline-flex';
-
-                    // Prepare canvas once
-                    $canvas.width  = $video.videoWidth;
-                    $canvas.height = $video.videoHeight;
-                    canvasCtx = $canvas.getContext('2d', { willReadFrequently: true });
-
-                    log('Camera live. Scanning for QR codes...');
-                    setState('scanner running');
-
-                    loadCameras();
-                    tick();
-                };
-            })
-            .catch(function(err) {
-                var msg = err.message || String(err);
-                if (err.name === 'NotAllowedError')  msg = 'Camera permission denied. Click the camera icon in the address bar.';
-                if (err.name === 'NotFoundError')     msg = 'No camera found on this device.';
-                if (err.name === 'NotReadableError')   msg = 'Camera in use by another app.';
-                log('Camera error: ' + msg);
-                setState('camera error');
-                showFeedback(false, msg);
-            });
-    }
-    window.startScanner = startScanner;
-
-    /* ── DECODE LOOP ───────────────────────────────────────── */
-    function tick() {
-        if (!running) return;
-        if (!$video || $video.readyState < 2) {
-            animId = requestAnimationFrame(tick);
-            return;
-        }
-
-        var w = $video.videoWidth, h = $video.videoHeight;
-        if (!w || !h) { animId = requestAnimationFrame(tick); return; }
-
-        if ($canvas.width !== w || $canvas.height !== h) {
-            $canvas.width = w;
-            $canvas.height = h;
-            canvasCtx = $canvas.getContext('2d', { willReadFrequently: true });
-        }
-
-        canvasCtx.drawImage($video, 0, 0, w, h);
-
-        if (typeof jsQR !== 'undefined') {
-            try {
-                var imgData = canvasCtx.getImageData(0, 0, w, h);
-                var code = jsQR(imgData.data, w, h, { inversionAttempts: 'dontInvert' });
-                if (code && code.data) {
-                    log('QR detected: ' + code.data);
-                    onScanSuccess(code.data);
-                    if ($aimBox) {
-                        $aimBox.classList.add('detected');
-                        setTimeout(function() { $aimBox.classList.remove('detected'); }, 800);
+                if (scanAttemptCount % 6 === 0) {
+                    var assistedDecoded = assistDecodeFromCurrentVideoFrame();
+                    if (assistedDecoded) {
+                        log('Assist decode #' + assistScanCount + ': QR detected -> ' + assistedDecoded);
+                        onScanSuccess(assistedDecoded);
+                    } else {
+                        log('Assist decode #' + assistScanCount + ': no QR detected');
                     }
                 }
-            } catch(e) { /* skip frame */ }
+            } else {
+                log('Attempt #' + scanAttemptCount + ': decode error -> ' + (err.message || String(err)));
+            }
+        }
+    }
+
+    function startDecodeWithConstraints(useFrontCamera) {
+        var reader = ensureZXingReader();
+        if (!reader || !videoEl) {
+            return Promise.reject(new Error('ZXing reader is not available.'));
         }
 
-        animId = requestAnimationFrame(tick);
+        return reader.decodeFromConstraints(
+            getZXingScanConstraints(useFrontCamera),
+            videoEl,
+            onDecodeCallback
+        ).then(function(ctrl) {
+            zxingControls = ctrl;
+            return ctrl;
+        });
     }
 
-    /* ── STOP SCANNER ──────────────────────────────────────── */
-    function stopScanner() {
-        running = false;
-        if (animId) { cancelAnimationFrame(animId); animId = null; }
-        if (stream) { stream.getTracks().forEach(function(t) { t.stop(); }); stream = null; }
-        canvasCtx = null;
+    function startCameraScanner() {
+        if (scanning) return;
 
-        if ($video) { $video.srcObject = null; $video.style.display = 'none'; }
-        if ($placeholder) $placeholder.style.display = 'flex';
-        if ($aimBox) $aimBox.style.display = 'none';
-        if ($startBtn) $startBtn.style.display = 'inline-flex';
-        if ($stopBtn)  $stopBtn.style.display  = 'none';
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showFeedback(false, 'Camera API is not available in this browser.');
+            return;
+        }
 
-        log('Scanner stopped.');
-        setState('scanner stopped');
+        scanAttemptCount = 0;
+        scanNoResultCount = 0;
+        assistScanCount = 0;
+        setState('starting camera...');
+        log('Starting camera scanner.');
+        setScanButtons(false);
+        ensureScannerSurface();
+
+        if (!supportsZXing()) {
+            log('ZXing not available. Using native fallback scanner.');
+            scanning = true;
+            return startNativeFallbackScanner(false).then(function() {
+                setState('scanner running (native rear/default)');
+                setScanButtons(true);
+                log('Native scanner running. Each decode attempt is logged below.');
+            }).catch(function(err) {
+                log('Native rear/default failed, trying front camera. Error: ' + err);
+                stopStreamTracks();
+                return startNativeFallbackScanner(true).then(function() {
+                    setState('scanner running (native front fallback)');
+                    setScanButtons(true);
+                    log('Native front camera fallback is running.');
+                });
+            }).catch(function(finalNativeErr) {
+                scanning = false;
+                setScanButtons(false);
+                setState('camera error');
+                log('Native scanner start failed: ' + finalNativeErr);
+                showFeedback(false, 'Unable to access camera or decoder.');
+            });
+        }
+
+        startDecodeWithConstraints(false).then(function() {
+            try {
+                stream = videoEl && videoEl.srcObject ? videoEl.srcObject : null;
+            } catch (e) {
+                stream = null;
+            }
+            scanning = true;
+            setState('scanner running (rear/default camera)');
+            setScanButtons(true);
+            log('Scanner running. Each decode attempt is logged below.');
+        }).catch(function(err) {
+            log('Rear/default camera failed, trying front camera. Error: ' + err);
+            stopStreamTracks();
+            if (zxingReader) {
+                try { zxingReader.reset(); } catch (resetErr) {}
+            }
+
+            return startDecodeWithConstraints(true).then(function() {
+                try {
+                    stream = videoEl && videoEl.srcObject ? videoEl.srcObject : null;
+                } catch (e) {
+                    stream = null;
+                }
+                scanning = true;
+                setState('scanner running (front camera fallback)');
+                setScanButtons(true);
+                log('Front camera fallback is running.');
+            });
+        }).catch(function(finalErr) {
+            scanning = false;
+            setScanButtons(false);
+            setState('camera error');
+            log('Camera start failed: ' + finalErr);
+            showFeedback(false, 'Unable to access camera. Allow permission, then try again.');
+        });
     }
-    window.stopScanner = stopScanner;
+    window.startCameraScanner = startCameraScanner;
 
-    /* ── Scan success (with cooldown) ──────────────────────── */
+    function stopCameraScanner() {
+        scanning = false;
+
+        if (fallbackLoopId) {
+            window.cancelAnimationFrame(fallbackLoopId);
+            fallbackLoopId = null;
+        }
+
+        if (zxingControls && typeof zxingControls.stop === 'function') {
+            try { zxingControls.stop(); } catch (e) {}
+        }
+        zxingControls = null;
+
+        if (zxingReader) {
+            try { zxingReader.reset(); } catch (e) {}
+        }
+
+        stopStreamTracks();
+
+        if (videoEl) {
+            try { videoEl.pause(); } catch (e) {}
+            videoEl.srcObject = null;
+        }
+
+        setScanButtons(false);
+        setState('scanner stopped | attempts: ' + scanAttemptCount + ', misses: ' + scanNoResultCount);
+        log('Scanner stopped. Total attempts=' + scanAttemptCount + ', misses=' + scanNoResultCount + '.');
+    }
+    window.stopCameraScanner = stopCameraScanner;
+
+     /* ══════════════════════════════════════════════════════════
+         2. FILE/IMAGE UPLOAD SCANNING
+         Uses BarcodeDetector with jsQR fallback
+     ══════════════════════════════════════════════════════════ */
+
+    // Drag-and-drop visual feedback
+    var dropzone = document.getElementById('qr-dropzone');
+    if (dropzone) {
+        dropzone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropzone.classList.add('drag-over');
+        });
+        dropzone.addEventListener('dragleave', function() {
+            dropzone.classList.remove('drag-over');
+        });
+        dropzone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropzone.classList.remove('drag-over');
+            var files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processUploadedFile(files[0]);
+            }
+        });
+    }
+
+    window.scanFromFile = function(event) {
+        var file = event.target.files && event.target.files[0];
+        if (file) processUploadedFile(file);
+    };
+
+    function processUploadedFile(file) {
+        // Validate file type
+        var validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (validTypes.indexOf(file.type) === -1) {
+            showFeedback(false, 'Invalid file type. Use JPG, PNG, GIF, or WebP.');
+            return;
+        }
+
+        log('Scanning uploaded file: ' + file.name + ' (' + file.type + ')');
+        setState('scanning image...');
+
+        // Show file preview
+        var previewEl = document.getElementById('file-preview');
+        if (previewEl) {
+            var url = URL.createObjectURL(file);
+            previewEl.innerHTML = '<img src="' + url + '" class="preview-img" alt="Uploaded QR">';
+        }
+
+        if (scanning) stopCameraScanner();
+
+        var img = new Image();
+        var imgUrl = URL.createObjectURL(file);
+
+        img.onload = function() {
+            try {
+                var c = document.createElement('canvas');
+                c.width = img.naturalWidth || img.width;
+                c.height = img.naturalHeight || img.height;
+                var ctx = c.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(img, 0, 0, c.width, c.height);
+
+                var decoded = '';
+
+                if (supportsZXing()) {
+                    var tempReader = new window.ZXing.BrowserMultiFormatReader();
+                    tempReader.decodeFromImageElement(img).then(function(result) {
+                        decoded = result && typeof result.getText === 'function' ? String(result.getText() || '') : '';
+                        if (decoded) {
+                            log('Image scan success (ZXing): ' + decoded);
+                            setState('image decoded');
+                            onScanSuccess(decoded);
+                            return;
+                        }
+
+                        if (typeof jsQR !== 'undefined') {
+                            var imgData = ctx.getImageData(0, 0, c.width, c.height);
+                            var qr = jsQR(imgData.data, c.width, c.height, { inversionAttempts: 'attemptBoth' });
+                            decoded = qr && qr.data ? qr.data : '';
+                        }
+
+                        if (decoded) {
+                            log('Image scan success (jsQR fallback): ' + decoded);
+                            setState('image decoded');
+                            onScanSuccess(decoded);
+                        } else {
+                            log('Image scan failed: no QR detected');
+                            setState('no QR in image');
+                            showFeedback(false, 'No QR code found in image. Try a clearer photo.');
+                        }
+                    }).catch(function(imgErr) {
+                        if (typeof jsQR !== 'undefined') {
+                            var fallbackData = ctx.getImageData(0, 0, c.width, c.height);
+                            var fallbackQr = jsQR(fallbackData.data, c.width, c.height, { inversionAttempts: 'attemptBoth' });
+                            decoded = fallbackQr && fallbackQr.data ? fallbackQr.data : '';
+                        }
+
+                        if (decoded) {
+                            log('Image scan success (jsQR fallback): ' + decoded);
+                            setState('image decoded');
+                            onScanSuccess(decoded);
+                        } else {
+                            log('Image scan decode error: ' + imgErr);
+                            setState('image decode error');
+                            showFeedback(false, 'Image scan failed. Try another image.');
+                        }
+                    });
+                } else if (typeof jsQR !== 'undefined') {
+                    var data = ctx.getImageData(0, 0, c.width, c.height);
+                    var result = jsQR(data.data, c.width, c.height, { inversionAttempts: 'attemptBoth' });
+                    decoded = result && result.data ? result.data : '';
+                    if (decoded) {
+                        log('Image scan success (jsQR only): ' + decoded);
+                        setState('image decoded');
+                        onScanSuccess(decoded);
+                    } else {
+                        log('Image scan failed: no QR detected');
+                        setState('no QR in image');
+                        showFeedback(false, 'No QR code found in image. Try a clearer photo.');
+                    }
+                } else {
+                    log('Image scan failed: no decoder available');
+                    setState('image decoder unavailable');
+                    showFeedback(false, 'No QR decoder available in browser.');
+                }
+            } catch (imgErr) {
+                log('Image scan exception: ' + imgErr);
+                setState('image decode exception');
+                showFeedback(false, 'Could not decode this image.');
+            } finally {
+                URL.revokeObjectURL(imgUrl);
+            }
+        };
+
+        img.onerror = function() {
+            URL.revokeObjectURL(imgUrl);
+            log('Image load failed for file: ' + file.name);
+            setState('image load failed');
+            showFeedback(false, 'Could not load selected image.');
+        };
+
+        img.src = imgUrl;
+
+        // Reset file input
+        var fileInput = document.getElementById('qr-file-input');
+        if (fileInput) fileInput.value = '';
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       3. MANUAL ID FALLBACK
+       Plain text input, no QR library involved
+    ══════════════════════════════════════════════════════════ */
+
+    window.submitManualId = function() {
+        var input = document.getElementById('manual-id-input');
+        if (!input) return;
+        var val = input.value.trim();
+        if (!val) {
+            showFeedback(false, 'Please enter a membership ID.');
+            return;
+        }
+        log('Manual ID entered: ' + val);
+        setState('processing manual ID...');
+        sendToBackend(val, 'manual');
+        input.value = '';
+    };
+
+    /* ══════════════════════════════════════════════════════════
+       SHARED: scan success, backend communication, UI
+    ══════════════════════════════════════════════════════════ */
+
     function onScanSuccess(text) {
         if (cooldown) return;
+        var payload = cleanPayload(text);
+        if (!payload) return;
+
+        var now = Date.now();
+        if (payload === lastPayload && (now - lastPayloadAt) < 2500) return;
+        lastPayload = payload;
+        lastPayloadAt = now;
+
         cooldown = true;
-        setTimeout(function() { cooldown = false; }, 3000);
-        setState('QR detected, sending...');
-        processScan(text.trim(), 'camera');
+        setTimeout(function() { cooldown = false; }, 2000);
+        log('QR detected: ' + payload);
+        setState('scan success on attempt #' + scanAttemptCount);
+        sendToBackend(payload, 'scan');
     }
 
-    /* ── Send to backend ───────────────────────────────────── */
-    function processScan(payload, source) {
-        if (!payload) return;
-        log('Sending ' + source + ': ' + payload);
+    function sendToBackend(payload, source) {
+        if (!payload) { log('Empty payload, ignored.'); return; }
+        log('Sending to server (' + source + '): ' + payload);
+        setState('sending to server...');
+
+        var normalized = extractMembershipId(payload);
+        var body = 'membership_id=' + encodeURIComponent(normalized || payload)
+            + '&qr_data=' + encodeURIComponent(payload);
 
         fetch('scan.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'membership_id=' + encodeURIComponent(payload)
+            body: body
         })
         .then(function(r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();
         })
         .then(function(data) {
-            log((data.success ? 'OK: ' : 'FAIL: ') + (data.message || ''));
-            setState(data.success ? 'scan OK' : 'scan rejected');
+            log((data.success ? '✓ ' : '✗ ') + (data.message || ''));
+            setState(data.success ? 'check-in/out OK ✓' : 'scan rejected');
             showFeedback(data.success, data.message, data.action);
             if (data.success) {
                 if (data.recent_logs && Array.isArray(data.recent_logs)) {
@@ -544,79 +954,33 @@ $activeMembers = $membersStmt->fetchAll();
             }
         })
         .catch(function(err) {
-            log('Request failed: ' + (err.message || err));
+            log('Server error: ' + (err.message || err));
             setState('request failed');
-            showFeedback(false, 'Server error. Try again.');
+            showFeedback(false, 'Server error. Please try again.');
         });
     }
 
-    /* ── Image upload scanner ──────────────────────────────── */
-    window.handleQrImageUpload = function(event) {
-        var file = event.target.files && event.target.files[0];
-        if (!file) return;
-        log('Scanning image: ' + file.name);
-        setState('decoding image...');
-
-        var img = new Image();
-        var url = URL.createObjectURL(file);
-        img.onload = function() {
-            var c = document.createElement('canvas');
-            c.width = img.width; c.height = img.height;
-            var ctx = c.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            URL.revokeObjectURL(url);
-            event.target.value = '';
-
-            if (typeof jsQR === 'undefined') { log('jsQR not loaded.'); return; }
-            var code = jsQR(ctx.getImageData(0, 0, img.width, img.height).data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
-            if (code && code.data) {
-                log('Image decoded: ' + code.data);
-                processScan(code.data, 'image');
-            } else {
-                log('No QR found in image.');
-                showFeedback(false, 'No QR code found. Try a clearer photo.');
-            }
-        };
-        img.onerror = function() {
-            URL.revokeObjectURL(url);
-            event.target.value = '';
-            showFeedback(false, 'Could not load image.');
-        };
-        img.src = url;
-    };
-
-    /* ── Manual membership ID ──────────────────────────────── */
-    window.submitScannerMembershipId = function() {
-        var input = el('scanner-membership-input');
-        if (!input) return;
-        var v = input.value.trim();
-        if (!v) { showFeedback(false, 'Enter a membership ID first.'); return; }
-        log('Manual ID: ' + v);
-        processScan(v, 'manual');
-        input.value = '';
-    };
-
     /* ── Feedback banner ───────────────────────────────────── */
     function showFeedback(ok, msg, action) {
-        if (!$feedback) grabRefs();
-        if (!$feedback) return;
-        $feedback.style.display = 'flex';
+        var el = document.getElementById('scan-feedback');
+        if (!el) return;
+        el.style.display = 'flex';
         if (ok) {
             var isIn = action === 'in';
-            $feedback.style.background = isIn ? 'rgba(34,197,94,.15)' : 'rgba(59,130,246,.15)';
-            $feedback.style.color      = isIn ? '#22c55e' : '#3b82f6';
-            $feedback.style.border     = '1px solid ' + (isIn ? 'rgba(34,197,94,.3)' : 'rgba(59,130,246,.3)');
-            $feedback.innerHTML = '<i class="fas fa-circle-check"></i> ' + msg;
+            el.style.background = isIn ? 'rgba(34,197,94,.15)' : 'rgba(59,130,246,.15)';
+            el.style.color      = isIn ? '#22c55e' : '#3b82f6';
+            el.style.border     = '1px solid ' + (isIn ? 'rgba(34,197,94,.3)' : 'rgba(59,130,246,.3)');
+            el.innerHTML = '<i class="fas fa-circle-check"></i> ' + msg;
         } else {
-            $feedback.style.background = 'rgba(239,68,68,.15)';
-            $feedback.style.color      = '#ef4444';
-            $feedback.style.border     = '1px solid rgba(239,68,68,.3)';
-            $feedback.innerHTML = '<i class="fas fa-circle-exclamation"></i> ' + msg;
+            el.style.background = 'rgba(239,68,68,.15)';
+            el.style.color      = '#ef4444';
+            el.style.border     = '1px solid rgba(239,68,68,.3)';
+            el.innerHTML = '<i class="fas fa-circle-exclamation"></i> ' + msg;
         }
-        setTimeout(function() { $feedback.style.display = 'none'; }, 5000);
+        setTimeout(function() { el.style.display = 'none'; }, 5000);
     }
 
-    /* ── Activity table rendering ──────────────────────────── */
+    /* ── Activity table ────────────────────────────────────── */
     function esc(v) {
         return String(v == null ? '' : v).replace(/[&<>'"]/g, function(c) {
             return { '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#039;', '"':'&quot;' }[c];
@@ -628,7 +992,7 @@ $activeMembers = $membersStmt->fetchAll();
     }
 
     function renderActivityRows(logs) {
-        var tb = el('activity-table');
+        var tb = document.getElementById('activity-table');
         if (!tb) return;
         var bIn  = '<span class="badge badge-active">Active in Gym</span>';
         var bOut = '<span class="badge" style="background:#6c757d22;color:#9292a4;border:1px solid #9292a436;">Checked Out</span>';
@@ -654,14 +1018,14 @@ $activeMembers = $membersStmt->fetchAll();
         fetch('today_logs.php?_=' + Date.now(), { method: 'GET', cache: 'no-store' })
             .then(function(r) { return r.text(); })
             .then(function(html) {
-                var tb = el('activity-table');
+                var tb = document.getElementById('activity-table');
                 if (tb) tb.innerHTML = html;
             })
             .catch(function() { log('Activity refresh failed.'); });
     }
 
-    /* ── Init ──────────────────────────────────────────────── */
-    grabRefs();
+    setScanButtons(false);
+
 })();
 </script>
 
