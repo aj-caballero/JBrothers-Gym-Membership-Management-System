@@ -15,6 +15,7 @@ $settings    = getGymSettings($pdo);
 $gymName     = $settings->gym_name ?? 'JBrothers Gym';
 $photoUrl    = getMemberPhotoUrl($member->photo_path);
 $membershipId = $member->membership_id ?? '—';
+$qrImageUrl  = APP_URL . '/qrcode.php?data=' . rawurlencode($membershipId);
 
 $parts    = explode(' ', $member->full_name);
 $initials = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts[1],0,1) : ''));
@@ -26,7 +27,6 @@ $initials = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Membership Card — <?= htmlspecialchars($member->full_name) ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -106,7 +106,21 @@ $initials = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts
         .membership-id-label { font-size: 9px; color: #55556a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
         .membership-id-value { font-size: 14px; font-weight: 700; color: #22c55e; font-family: monospace; letter-spacing: 1px; }
 
-        .qr-block { background: white; padding: 6px; border-radius: 8px; }
+        .qr-block {
+            background: white;
+            padding: 6px;
+            border-radius: 8px;
+            width: 108px;
+            height: 108px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .qr-block img {
+            width: 96px;
+            height: 96px;
+            display: block;
+        }
 
         .action-bar { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
         .btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 20px; border-radius: 10px; border: none; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.15s; }
@@ -155,7 +169,9 @@ $initials = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts
                     <div class="membership-id-label">Membership ID</div>
                     <div class="membership-id-value"><?= htmlspecialchars($membershipId) ?></div>
                 </div>
-                <div class="qr-block"><div id="card-qr"></div></div>
+                <div class="qr-block">
+                    <img src="<?= htmlspecialchars($qrImageUrl) ?>" alt="Membership QR code">
+                </div>
             </div>
         </div>
     </div>
@@ -168,13 +184,6 @@ $initials = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script>
-    new QRCode(document.getElementById("card-qr"), {
-        text: "<?= htmlspecialchars($membershipId) ?>",
-        width: 96, height: 96,
-        colorDark: "#000000", colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.H
-    });
-
     function downloadCard() {
         html2canvas(document.getElementById('id-card-el'), { scale: 3, useCORS: true, backgroundColor: null })
             .then(canvas => {

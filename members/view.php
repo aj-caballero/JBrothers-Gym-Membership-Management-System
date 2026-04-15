@@ -19,6 +19,7 @@ $payments = $stmtPay->fetchAll();
 
 $photoUrl    = getMemberPhotoUrl($member->photo_path);
 $membershipId = $member->membership_id ?? '—';
+$qrImageUrl  = APP_URL . '/qrcode.php?data=' . rawurlencode($membershipId);
 
 // Initials for avatar fallback
 $parts    = explode(' ', $member->full_name);
@@ -63,7 +64,7 @@ $initials = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts
             <!-- QR Code -->
             <div style="text-align:center;padding-bottom:20px;">
                 <div style="background:white;padding:12px;border-radius:var(--radius-md);display:inline-block;box-shadow:0 4px 16px rgba(0,0,0,0.4);">
-                    <div id="member-qr"></div>
+                    <img src="<?= htmlspecialchars($qrImageUrl) ?>" alt="Membership QR code" style="width:120px;height:120px;display:block;">
                 </div>
                 <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Scan for attendance</div>
             </div>
@@ -130,17 +131,5 @@ $initials = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts
         </table>
     </div>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<script>
-new QRCode(document.getElementById("member-qr"), {
-    text: "<?= htmlspecialchars($membershipId) ?>",
-    width: 120,
-    height: 120,
-    colorDark: "#000000",
-    colorLight: "#ffffff",
-    correctLevel: QRCode.CorrectLevel.H
-});
-</script>
 
 <?php require_once '../includes/footer.php'; ?>

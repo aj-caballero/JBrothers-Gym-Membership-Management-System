@@ -26,6 +26,7 @@ $attendance = $stmtAtt->fetchAll();
 
 $photoUrl     = getMemberPhotoUrl($me->photo_path ?? null);
 $membershipId = $me->membership_id ?? '—';
+$qrImageUrl   = APP_URL . '/qrcode.php?data=' . rawurlencode($membershipId);
 $parts        = explode(' ', $me->full_name ?? 'M');
 $initials     = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts[1],0,1) : ''));
 ?>
@@ -56,7 +57,7 @@ $initials     = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($p
             <!-- QR Code -->
             <div style="text-align:center;">
                 <div style="background:white;padding:10px;border-radius:var(--radius-md);display:inline-block;box-shadow:0 4px 16px rgba(0,0,0,0.4);">
-                    <div id="member-qr"></div>
+                    <img src="<?= htmlspecialchars($qrImageUrl) ?>" alt="Membership QR code" style="width:140px;height:140px;display:block;">
                 </div>
                 <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">Your Attendance QR</div>
             </div>
@@ -106,15 +107,5 @@ $initials     = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($p
         </div>
     </div>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<script>
-new QRCode(document.getElementById("member-qr"), {
-    text: "<?= htmlspecialchars($membershipId) ?>",
-    width: 140, height: 140,
-    colorDark: "#000000", colorLight: "#ffffff",
-    correctLevel: QRCode.CorrectLevel.H
-});
-</script>
 
 <?php require_once '../includes/footer.php'; ?>

@@ -1,104 +1,292 @@
 # JBrothers Gym Membership Management System
 
-A robust, full-stack gym administration portal built with pure PHP, MySQL, and vanilla web technologies. Designed for gym owners, staff, and members to seamlessly manage daily operations, track payments, generate revenue reports, and manage memberships in real-time — wrapped in a modern, professional SaaS-grade interface.
+A complete multi-role gym operations platform built with native PHP, MySQL/MariaDB, and vanilla frontend technologies. It supports admin/staff operations, a dedicated member portal, payments, memberships, attendance, reports, and QR-based check-ins.
 
----
+## Overview
 
-## 🚀 Key Features
+This project contains three application surfaces:
 
-### 👑 Admin & Staff Operations
-- **Role-Based Access Control (RBAC):** Secure multi-tier permissions. Admins can restrict specific module visibility (e.g., hiding financial reports) per staff account via granular permission checklists.
-- **Membership Plan Management:** Create and price custom membership packages with duration and auto-calculated expiry dates.
-- **Member Directory:** Track all members with searchable, filterable tables — view profile, status, contact info, and history in one click.
-- **Real-Time Attendance:** Smart toggle check-in/check-out — the system auto-detects whether to log time-in or time-out based on today's records.
-- **Automated Expiry Checks:** On every page load, memberships and member statuses are swept and updated automatically — no cron job required.
-- **Centralized Dashboard:** At-a-glance KPI cards: Total Members, Active Members, Total Revenue, Expiring Soon, and Today's Check-ins.
-- **Financial Analytics:** Dynamic Chart.js line graph tracking the last 6 months of revenue, plus a full payment log with method breakdown (Cash, GCash, Card).
-- **Transactional Payment Flow:** Payments, membership creation, and member activation all execute inside a single PDO database transaction — atomically.
+1. Admin Portal: full access to users, settings, all modules.
+2. Staff Portal: module access controlled by permission list.
+3. Member Portal: isolated self-service dashboard and profile area.
 
-### 👤 Dedicated Member Panel
-- **Isolated User Portal:** A safely containerized portal accessible exclusively by standard gym members, completely separate from staff screens.
-- **Profile Self-Service:** Members can update demographics and change their password securely.
-- **Membership Status Overview:** Live badge showing active plan, expiry date, and plan description.
-- **Attendance History Viewer:** Members can view their own time-in/time-out history.
+Main goals of the system:
 
----
+1. Manage members, plans, and active memberships.
+2. Record payments and keep financial logs consistent.
+3. Track attendance with manual and QR-based flow.
+4. Provide reports and daily activity visibility.
 
-## 🎨 UI Design System (v2.0)
+## Core Capabilities
 
-The interface was fully redesigned to match real-world SaaS fitness dashboards.
+### Access and Security
 
-- **Theme:** Dark professional — deep slate backgrounds (`#0a0a0f`, `#111118`, `#16161f`) with a fitness-green accent (`#22c55e`)
-- **Typography:** Inter (800/700/600/500/400) with a strict 5-level hierarchy
-- **Login Page:** Split-panel layout — form left, feature highlights right
-- **Sidebar:** Fixed 256px sidebar with section labels, icon-prefixed nav items, active state highlighting, and mobile collapse
-- **Topbar:** Sticky 60px header with search bar, notification bell, user avatar chip (generated initials), and sign-out button
-- **Stat Cards:** 5-card KPI row with colored icon blocks, hover glow effect, and gradient overlay
-- **Tables:** Uppercase column headers, dual-line name+email cells, colored status badges, and row hover
-- **Badges:** Pill-shaped with dot indicator — green (Active), red (Expired), amber (Suspended), muted (Inactive)
-- **Buttons:** Primary (green), Secondary (ghost), Danger; all with hover lift and active press states
-- **Modals:** Backdrop blur overlay, slide-in animation, structured header/body/footer layout
-- **Empty States:** Illustrated fallbacks for every empty table — icon + heading + CTA
-- **Alerts/Flash Messages:** Color-coded inline alerts (success/error) that auto-dismiss after 5 seconds
-- **Responsive:** Sidebar collapses to slide-in drawer below 1024px; stat grid stacks on mobile
+1. Session-based authentication for users and members.
+2. Role-based separation (`admin`, `staff`, `member`).
+3. Per-module permission enforcement for staff.
+4. Global login guard and unauthorized redirect handling.
 
----
+### Member and Plan Management
 
-## 🛠️ Tech Stack
+1. Member CRUD with profile details, status, and photo.
+2. Auto-generated membership IDs in format `GYM-YYYY-XXXXX`.
+3. Membership plans with duration and pricing.
+4. Active/expired status handling for plans and members.
+5. Soft-delete archive support for members and plans.
+
+### Payments and Membership Activation
+
+1. Payment recording with method and status.
+2. Membership creation and activation tied to payment flow.
+3. Transaction-style consistency (payment + membership updates).
+4. Printable receipts.
+
+### Attendance and QR System
+
+1. Manual attendance check-in/check-out.
+2. QR camera scanning and image-file decoding.
+3. Automatic toggle between check-in and check-out for the same day.
+4. Live “today logs” refresh in attendance screen.
+
+### Member Portal
+
+1. Member dashboard with own membership status and recent attendance.
+2. Profile update support (phone/address/demographics).
+3. Password change with current password verification.
+4. Member card page with printable/downloadable QR ID card.
+
+### Dashboard and Reporting
+
+1. KPI cards for members/revenue/check-ins/expiry.
+2. Revenue chart visualization.
+3. Payment history and operational summaries.
+4. Notifications view for system/member-related events.
+
+## QR Implementation (Current)
+
+The project now uses:
+
+1. Server-side QR generation: `endroid/qr-code` via Composer.
+2. Browser-side QR decoding: `html5-qrcode` JavaScript library.
+
+### Generation Flow
+
+1. QR images are served by [qrcode.php](qrcode.php).
+2. Endpoint is authenticated (`require_login()`), and returns PNG.
+3. Card/profile pages render QR as standard image source:
+	1. [members/id_card.php](members/id_card.php)
+	2. [member_panel/my_card.php](member_panel/my_card.php)
+	3. [members/view.php](members/view.php)
+	4. [member_panel/index.php](member_panel/index.php)
+
+### Scan Flow
+
+1. Frontend scanner in [attendance/index.php](attendance/index.php) decodes payload.
+2. Scanner posts both fields to backend:
+	1. `membership_id` (normalized value)
+	2. `qr_data` (raw scanned payload)
+3. Backend endpoint [attendance/scan.php](attendance/scan.php) parses multiple payload formats:
+	1. Plain membership ID
+	2. URL query payloads (`membership_id`, `member_id`, etc.)
+	3. JSON payload
+	4. Prefixed text (`member:...`, `id:...`)
+	5. Embedded `GYM-YYYY-XXXXX` pattern
+
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| **Backend** | Native PHP 8.x |
-| **Database** | MySQL / MariaDB |
-| **Frontend** | HTML5, Vanilla CSS3 (custom design system v2) |
-| **Icons** | FontAwesome 6.5 |
-| **Charts** | Chart.js (CDN) |
-| **Fonts** | Inter — Google Fonts |
+| Backend | Native PHP 8.x |
+| Database | MySQL / MariaDB |
+| DB Access | PDO |
+| Frontend | HTML5, Vanilla CSS3, Vanilla JS |
+| Charts | Chart.js |
+| Icons | FontAwesome 6.5 |
+| Searchable Select | Tom Select |
+| QR Generation | endroid/qr-code (Composer) |
+| QR Decoding | html5-qrcode (local vendor JS) |
 
----
+## Project Structure
 
-## 📁 Project Structure
-
-```
+```text
 GYM MEMBERSHIP/
-├── config/          — App constants, session, database connection (PDO)
-├── includes/        — Shared header, footer, sidebar, helper functions
-├── auth/            — Login, logout, staff registration
-├── admin/           — User accounts & gym settings (admin only)
-├── members/         — Full member CRUD + search/filter/pagination
-├── plans/           — Membership plan builder
-├── payments/        — Payment recording + receipt printer
-├── attendance/      — Smart check-in/check-out + full history
-├── reports/         — Revenue chart + member stat analytics
-├── notifications/   — System alert center
-├── member_panel/    — Isolated customer self-service portal
-├── assets/css/      — Global design system stylesheet (style.css)
-└── database/        — gym_db.sql schema + seed data
+├── index.php
+├── dashboard.php
+├── qrcode.php
+├── composer.json
+├── composer.lock
+├── config/
+│   ├── config.php
+│   └── database.php
+├── includes/
+│   ├── header.php
+│   ├── footer.php
+│   ├── sidebar.php
+│   └── functions.php
+├── auth/
+│   ├── login.php
+│   ├── logout.php
+│   └── register.php
+├── admin/
+│   ├── users.php
+│   ├── edit_user.php
+│   └── settings.php
+├── members/
+├── plans/
+├── payments/
+├── attendance/
+├── reports/
+├── notifications/
+├── member_panel/
+├── assets/
+│   ├── css/
+│   ├── js/
+│   │   └── vendor/
+│   │       └── html5-qrcode.min.js
+│   └── uploads/
+└── database/
+	 ├── gym_db.sql
+	 ├── soft_delete_migration.sql
+	 └── membership_qr_migration.sql
 ```
 
----
+## Database Model
 
-## ⚙️ Installation & Usage
+Base schema ([database/gym_db.sql](database/gym_db.sql)) includes:
 
-1. Import `./database/gym_db.sql` into MySQL via phpMyAdmin.
-2. Configure credentials in `./config/database.php`.
-3. Serve via XAMPP, WAMP, or PHP built-in server.
-4. Navigate to `http://localhost/GYM MEMBERSHIP/` and sign in.
+1. `gym_settings`
+2. `users`
+3. `members`
+4. `membership_plans`
+5. `memberships`
+6. `payments`
+7. `attendance_logs`
+8. `notifications`
 
-**Default admin credentials:**
-- Email: `admin@gym.com`
-- Password: `password123`
+Additional migrations:
 
-**Default member password** (set at registration): `password`
+1. [database/soft_delete_migration.sql](database/soft_delete_migration.sql)
+	1. Adds `deleted_at` to `members` and `membership_plans`.
+2. [database/membership_qr_migration.sql](database/membership_qr_migration.sql)
+	1. Adds `membership_id` and `photo_path` to `members`.
+	2. Backfills IDs for existing members.
 
----
+## Installation and Setup
 
-## 🔮 Future Roadmap
+### Requirements
 
-- [ ] **QR Code / RFID Check-Ins** — Automate attendance via scanner APIs
-- [ ] **Automated SMS/Email Reminders** — Ping members 3 days before expiration
-- [ ] **PDF/CSV Export Hub** — Snapshot analytics directly into spreadsheets
-- [ ] **Class Scheduling Module** — Members reserve trainer sessions from their panel
-- [ ] **Integrated Payment Gateway** — Stripe / PayPal webhook callbacks
-- [ ] **CSRF Token Protection** — Secure all state-mutating forms
-- [ ] **Dedicated Cron Expiry Job** — Replace page-load sweep with a scheduled background task
+1. PHP 8.1+ (8.2 recommended).
+2. MySQL or MariaDB.
+3. Composer.
+4. PHP extensions:
+	1. `pdo_mysql`
+	2. `gd` (required for `endroid/qr-code` image generation)
+
+### Clone and Install
+
+```bash
+git clone <your-repo-url>
+cd "GYM MEMBERSHIP"
+composer install
+```
+
+Important:
+
+1. `vendor/` is ignored by Git.
+2. Everyone who clones must run `composer install`.
+3. `composer require endroid/qr-code` is only needed when adding/changing dependencies.
+
+### Database Setup
+
+1. Create/import base schema using [database/gym_db.sql](database/gym_db.sql).
+2. Run migration SQL files in this order:
+	1. [database/soft_delete_migration.sql](database/soft_delete_migration.sql)
+	2. [database/membership_qr_migration.sql](database/membership_qr_migration.sql)
+
+### App Configuration
+
+1. Edit DB credentials in [config/database.php](config/database.php).
+2. Ensure `APP_URL` in [config/config.php](config/config.php) matches your local URL.
+
+### Run the App
+
+1. Serve through XAMPP/WAMP/Laragon or PHP server.
+2. Open: `http://localhost/GYM%20MEMBERSHIP/`
+
+## Default Credentials
+
+1. Admin account:
+	1. Email: `admin@gym.com`
+	2. Password: `password123`
+2. Newly created members default password: `password`
+
+## Role and Permission Flow
+
+1. Admin users have full module access.
+2. Staff users are limited to modules listed in `users.permissions`.
+3. Members are redirected to member portal and blocked from admin/staff modules.
+4. Protected modules are enforced in [includes/header.php](includes/header.php):
+	1. `members`
+	2. `plans`
+	3. `payments`
+	4. `attendance`
+	5. `reports`
+
+## Operational Notes
+
+1. Expiry sweep runs globally during page load in [includes/header.php](includes/header.php):
+	1. Memberships with past `end_date` become `Expired`.
+	2. Members without active memberships become `Expired`.
+2. Attendance check-in/check-out is day-based and auto-toggles open session.
+3. Archived (`deleted_at` not null) members/plans are excluded in active lists.
+
+## Troubleshooting
+
+### QR generator dependency missing
+
+Symptom:
+
+1. `QR generator dependency is missing. Run composer install.`
+
+Fix:
+
+1. Run `composer install` in project root.
+
+### QR scanner library failed to load
+
+Fix:
+
+1. Ensure local file exists: [assets/js/vendor/html5-qrcode.min.js](assets/js/vendor/html5-qrcode.min.js)
+2. Hard-refresh browser (`Ctrl+F5`).
+
+### Camera access errors
+
+Fix:
+
+1. Allow camera permission in browser.
+2. Use HTTPS or localhost.
+3. Try file upload mode as fallback.
+
+### Database connection error
+
+Fix:
+
+1. Verify credentials in [config/database.php](config/database.php).
+2. Confirm MySQL service is running.
+3. Confirm `gym_db` and tables are imported.
+
+## Development Notes
+
+1. Keep [composer.json](composer.json) and [composer.lock](composer.lock) committed.
+2. Keep `vendor/` untracked (already in [.gitignore](.gitignore)).
+3. If dependency list changes:
+	1. Run `composer require <package>`
+	2. Commit updated lock file.
+
+## Known Gaps / Future Improvements
+
+1. Add CSRF protection to all state-changing forms.
+2. Move expiry sweep to cron job for scale.
+3. Add export endpoints (CSV/PDF).
+4. Add automated reminders (SMS/email).
+5. Add test coverage for critical flows.

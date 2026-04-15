@@ -11,6 +11,7 @@ $settings     = getGymSettings($pdo);
 $gymName      = $settings->gym_name ?? 'JBrothers Gym';
 $photoUrl     = getMemberPhotoUrl($member->photo_path ?? null);
 $membershipId = $member->membership_id ?? '—';
+$qrImageUrl   = APP_URL . '/qrcode.php?data=' . rawurlencode($membershipId);
 $parts        = explode(' ', $member->full_name ?? 'M');
 $initials     = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts[1],0,1) : ''));
 
@@ -40,7 +41,17 @@ body { background: #0a0a0f !important; min-height: 100vh; display: flex; flex-di
 .card-footer { padding:14px 20px; border-top:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between; }
 .membership-id-label { font-size:9px; color:#55556a; text-transform:uppercase; letter-spacing:1px; margin-bottom:3px; }
 .membership-id-value { font-size:14px; font-weight:700; color:#22c55e; font-family:monospace; letter-spacing:1px; }
-.qr-block { background:white; padding:6px; border-radius:8px; }
+.qr-block {
+    background:white;
+    padding:6px;
+    border-radius:8px;
+    width:108px;
+    height:108px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+.qr-block img { width:96px; height:96px; display:block; }
 .action-bar { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
 .btn { display:inline-flex; align-items:center; gap:7px; padding:10px 20px; border-radius:10px; border:none; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; cursor:pointer; text-decoration:none; transition:all 0.15s; }
 .btn-primary { background:#22c55e; color:#000; }
@@ -76,7 +87,9 @@ body { background: #0a0a0f !important; min-height: 100vh; display: flex; flex-di
             <div class="membership-id-label">Membership ID</div>
             <div class="membership-id-value"><?= htmlspecialchars($membershipId) ?></div>
         </div>
-        <div class="qr-block"><div id="card-qr"></div></div>
+        <div class="qr-block">
+            <img src="<?= htmlspecialchars($qrImageUrl) ?>" alt="Membership QR code">
+        </div>
     </div>
 </div>
 
@@ -86,15 +99,8 @@ body { background: #0a0a0f !important; min-height: 100vh; display: flex; flex-di
     <a href="index.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
-new QRCode(document.getElementById("card-qr"), {
-    text: "<?= htmlspecialchars($membershipId) ?>",
-    width: 96, height: 96,
-    colorDark: "#000000", colorLight: "#ffffff",
-    correctLevel: QRCode.CorrectLevel.H
-});
 function downloadCard() {
     html2canvas(document.getElementById('id-card-el'), { scale: 3, useCORS: true })
         .then(canvas => {

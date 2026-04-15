@@ -292,20 +292,14 @@ $activeMembers = $membersStmt->fetchAll();
 
 </div>
 
-<!-- ZXing primary decoder + jsQR fallback (local vendor files) -->
-<script src="../assets/js/vendor/zxing.min.js"></script>
-<script src="../assets/js/vendor/jsQR.min.js"></script>
+<!-- HTML5 QR decoder -->
+<script src="../assets/js/vendor/html5-qrcode.min.js"></script>
 <script>
 (function() {
     'use strict';
 
-    var stream = null;
-    var videoEl = null;
-    var frameCanvas = null;
-    var frameCtx = null;
-    var fallbackLoopId = null;
-    var zxingReader = null;
-    var zxingControls = null;
+    var html5Qr = null;
+    var scannerRunning = false;
     var scanning = false;
     var cooldown = false;
     var lastPayload = '';
@@ -313,7 +307,6 @@ $activeMembers = $membersStmt->fetchAll();
     var debugVisible = true;
     var scanAttemptCount = 0;
     var scanNoResultCount = 0;
-    var assistScanCount = 0;
 
     /* ── Debug ─────────────────────────────────────────────── */
     function setState(t) {
@@ -373,258 +366,29 @@ $activeMembers = $membersStmt->fetchAll();
         if (stopBtn) stopBtn.style.display = isScanning ? 'inline-flex' : 'none';
     }
 
-    function ensureScannerSurface() {
-        var host = document.getElementById('qr-reader');
-        if (!host) return;
-
-        host.innerHTML = '';
-
-        videoEl = document.createElement('video');
-        videoEl.setAttribute('autoplay', 'autoplay');
-        videoEl.setAttribute('muted', 'muted');
-        videoEl.setAttribute('playsinline', 'playsinline');
-        videoEl.style.width = '100%';
-        videoEl.style.height = '100%';
-        videoEl.style.objectFit = 'cover';
-        videoEl.style.borderRadius = 'var(--radius-md)';
-        frameCanvas = document.createElement('canvas');
-        frameCanvas.style.display = 'none';
-        frameCtx = frameCanvas.getContext('2d', { willReadFrequently: true });
-        host.appendChild(videoEl);
-        host.appendChild(frameCanvas);
-    }
-
-    function supportsZXing() {
-        return typeof window.ZXing !== 'undefined' && typeof window.ZXing.BrowserMultiFormatReader !== 'undefined';
-    }
-
-    function ensureZXingReader() {
-        if (!supportsZXing()) return null;
-        if (!zxingReader) {
-            zxingReader = new window.ZXing.BrowserMultiFormatReader();
+    function ensureHtml5Qr() {
+        if (!window.Html5Qrcode) {
+            throw new Error('html5-qrcode is not loaded.');
         }
-        return zxingReader;
+        if (!html5Qr) {
+            html5Qr = new Html5Qrcode('qr-reader');
+        }
     }
 
-    function getZXingScanConstraints(useFrontCamera) {
-        return {
-            audio: false,
-            video: {
-                facingMode: useFrontCamera ? 'user' : 'environment',
-                width: { ideal: 1920 },
-                height: { ideal: 1080 }
+    function getPreferredCameraConfig() {
+        return Html5Qrcode.getCameras().then(function(cameras) {
+            if (!cameras || !cameras.length) {
+                return { facingMode: 'environment' };
             }
-        };
-    }
 
-    function stopStreamTracks() {
-        if (!stream) return;
-        stream.getTracks().forEach(function(track) {
-            try { track.stop(); } catch (e) {}
-        });
-        stream = null;
-    }
+            var preferred = cameras.find(function(camera) {
+                var label = String(camera.label || '').toLowerCase();
+                return label.indexOf('back') !== -1 || label.indexOf('rear') !== -1 || label.indexOf('environment') !== -1;
+            });
 
-    function supportsNativeBarcodeDetector() {
-        return typeof window.BarcodeDetector !== 'undefined';
-    }
-
-    function getCameraStream(useFrontCamera) {
-        return navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: {
-                facingMode: useFrontCamera ? 'user' : 'environment',
-                width: { ideal: 1920 },
-                height: { ideal: 1080 }
-            }
+            return preferred ? preferred.id : cameras[0].id;
         }).catch(function() {
-            return navigator.mediaDevices.getUserMedia({ audio: false, video: true });
-        });
-    }
-
-    function decodeCurrentFrameNative(detector) {
-        if (!videoEl || !frameCtx || !frameCanvas) return Promise.resolve('');
-        if (videoEl.readyState < 2) return Promise.resolve('');
-
-        var w = videoEl.videoWidth || 0;
-        var h = videoEl.videoHeight || 0;
-        if (!w || !h) return Promise.resolve('');
-
-        if (frameCanvas.width !== w || frameCanvas.height !== h) {
-            frameCanvas.width = w;
-            frameCanvas.height = h;
-        }
-
-        frameCtx.drawImage(videoEl, 0, 0, w, h);
-
-        return detector.detect(frameCanvas).then(function(codes) {
-            if (codes && codes.length && codes[0].rawValue) {
-                return String(codes[0].rawValue);
-            }
-
-            if (typeof jsQR !== 'undefined') {
-                return decodeJsqrMultiPassFromCanvas(frameCanvas, frameCtx, w, h);
-            }
-
-            return '';
-        }).catch(function() {
-            if (typeof jsQR !== 'undefined') {
-                return decodeJsqrMultiPassFromCanvas(frameCanvas, frameCtx, w, h);
-            }
-            return '';
-        });
-    }
-
-    function decodeJsqrData(imageData, width, height) {
-        if (typeof jsQR === 'undefined') return '';
-        var qr = jsQR(imageData.data, width, height, { inversionAttempts: 'attemptBoth' });
-        return qr && qr.data ? String(qr.data) : '';
-    }
-
-    function applyContrastToImageData(imageData, factor) {
-        var data = imageData.data;
-        for (var i = 0; i < data.length; i += 4) {
-            data[i] = Math.max(0, Math.min(255, ((data[i] - 128) * factor) + 128));
-            data[i + 1] = Math.max(0, Math.min(255, ((data[i + 1] - 128) * factor) + 128));
-            data[i + 2] = Math.max(0, Math.min(255, ((data[i + 2] - 128) * factor) + 128));
-        }
-        return imageData;
-    }
-
-    function decodeJsqrMultiPassFromCanvas(canvas, ctx, width, height) {
-        var fullData = ctx.getImageData(0, 0, width, height);
-        var decoded = decodeJsqrData(fullData, width, height);
-        if (decoded) return decoded;
-
-        var enhanced = applyContrastToImageData(ctx.getImageData(0, 0, width, height), 1.45);
-        decoded = decodeJsqrData(enhanced, width, height);
-        if (decoded) return decoded;
-
-        var cropScale = 0.65;
-        var cw = Math.floor(width * cropScale);
-        var ch = Math.floor(height * cropScale);
-        var cx = Math.floor((width - cw) / 2);
-        var cy = Math.floor((height - ch) / 2);
-        var centerData = ctx.getImageData(cx, cy, cw, ch);
-        decoded = decodeJsqrData(centerData, cw, ch);
-        if (decoded) return decoded;
-
-        var centerEnhanced = applyContrastToImageData(ctx.getImageData(cx, cy, cw, ch), 1.6);
-        decoded = decodeJsqrData(centerEnhanced, cw, ch);
-        return decoded || '';
-    }
-
-    function assistDecodeFromCurrentVideoFrame() {
-        if (!videoEl || !frameCtx || !frameCanvas) return '';
-        if (videoEl.readyState < 2) return '';
-
-        var w = videoEl.videoWidth || 0;
-        var h = videoEl.videoHeight || 0;
-        if (!w || !h) return '';
-
-        if (frameCanvas.width !== w || frameCanvas.height !== h) {
-            frameCanvas.width = w;
-            frameCanvas.height = h;
-        }
-
-        frameCtx.drawImage(videoEl, 0, 0, w, h);
-        assistScanCount += 1;
-        return decodeJsqrMultiPassFromCanvas(frameCanvas, frameCtx, w, h);
-    }
-
-    function startNativeFallbackScanner(useFrontCamera) {
-        if (!supportsNativeBarcodeDetector() && typeof jsQR === 'undefined') {
-            return Promise.reject(new Error('No local QR decoder available.'));
-        }
-
-        return getCameraStream(useFrontCamera).then(function(camStream) {
-            stream = camStream;
-            if (!videoEl) {
-                throw new Error('Video element is not ready.');
-            }
-            videoEl.srcObject = stream;
-            return videoEl.play();
-        }).then(function() {
-            var detector = supportsNativeBarcodeDetector() ? new window.BarcodeDetector({ formats: ['qr_code'] }) : null;
-
-            function nativeLoop() {
-                if (!scanning) return;
-                scanAttemptCount += 1;
-                setState('scanning attempt #' + scanAttemptCount + ' (native)');
-
-                var decodePromise;
-                if (detector) {
-                    decodePromise = decodeCurrentFrameNative(detector);
-                } else {
-                    decodePromise = Promise.resolve('');
-                }
-
-                decodePromise.then(function(decoded) {
-                    if (decoded) {
-                        log('Attempt #' + scanAttemptCount + ': QR detected -> ' + decoded);
-                        onScanSuccess(decoded);
-                    } else {
-                        scanNoResultCount += 1;
-                        log('Attempt #' + scanAttemptCount + ': no QR detected');
-                    }
-                }).catch(function(err) {
-                    log('Attempt #' + scanAttemptCount + ': decode error -> ' + (err && err.message ? err.message : err));
-                }).finally(function() {
-                    if (scanning) {
-                        fallbackLoopId = window.requestAnimationFrame(nativeLoop);
-                    }
-                });
-            }
-
-            nativeLoop();
-        });
-    }
-
-    function onDecodeCallback(result, err) {
-        scanAttemptCount += 1;
-        setState('scanning attempt #' + scanAttemptCount);
-
-        if (result && typeof result.getText === 'function') {
-            var text = String(result.getText() || '');
-            log('Attempt #' + scanAttemptCount + ': QR detected -> ' + text);
-            onScanSuccess(text);
-            return;
-        }
-
-        if (err) {
-            var isNotFound = supportsZXing() && err instanceof window.ZXing.NotFoundException;
-            if (isNotFound) {
-                scanNoResultCount += 1;
-                log('Attempt #' + scanAttemptCount + ': no QR detected');
-
-                if (scanAttemptCount % 6 === 0) {
-                    var assistedDecoded = assistDecodeFromCurrentVideoFrame();
-                    if (assistedDecoded) {
-                        log('Assist decode #' + assistScanCount + ': QR detected -> ' + assistedDecoded);
-                        onScanSuccess(assistedDecoded);
-                    } else {
-                        log('Assist decode #' + assistScanCount + ': no QR detected');
-                    }
-                }
-            } else {
-                log('Attempt #' + scanAttemptCount + ': decode error -> ' + (err.message || String(err)));
-            }
-        }
-    }
-
-    function startDecodeWithConstraints(useFrontCamera) {
-        var reader = ensureZXingReader();
-        if (!reader || !videoEl) {
-            return Promise.reject(new Error('ZXing reader is not available.'));
-        }
-
-        return reader.decodeFromConstraints(
-            getZXingScanConstraints(useFrontCamera),
-            videoEl,
-            onDecodeCallback
-        ).then(function(ctrl) {
-            zxingControls = ctrl;
-            return ctrl;
+            return { facingMode: 'environment' };
         });
     }
 
@@ -638,69 +402,50 @@ $activeMembers = $membersStmt->fetchAll();
 
         scanAttemptCount = 0;
         scanNoResultCount = 0;
-        assistScanCount = 0;
         setState('starting camera...');
         log('Starting camera scanner.');
         setScanButtons(false);
-        ensureScannerSurface();
 
-        if (!supportsZXing()) {
-            log('ZXing not available. Using native fallback scanner.');
-            scanning = true;
-            return startNativeFallbackScanner(false).then(function() {
-                setState('scanner running (native rear/default)');
-                setScanButtons(true);
-                log('Native scanner running. Each decode attempt is logged below.');
-            }).catch(function(err) {
-                log('Native rear/default failed, trying front camera. Error: ' + err);
-                stopStreamTracks();
-                return startNativeFallbackScanner(true).then(function() {
-                    setState('scanner running (native front fallback)');
-                    setScanButtons(true);
-                    log('Native front camera fallback is running.');
-                });
-            }).catch(function(finalNativeErr) {
-                scanning = false;
-                setScanButtons(false);
-                setState('camera error');
-                log('Native scanner start failed: ' + finalNativeErr);
-                showFeedback(false, 'Unable to access camera or decoder.');
-            });
+        try {
+            ensureHtml5Qr();
+        } catch (initErr) {
+            showFeedback(false, 'QR scanner library failed to load.');
+            setState('scanner unavailable');
+            log(String(initErr));
+            return;
         }
 
-        startDecodeWithConstraints(false).then(function() {
-            try {
-                stream = videoEl && videoEl.srcObject ? videoEl.srcObject : null;
-            } catch (e) {
-                stream = null;
-            }
-            scanning = true;
-            setState('scanner running (rear/default camera)');
-            setScanButtons(true);
-            log('Scanner running. Each decode attempt is logged below.');
-        }).catch(function(err) {
-            log('Rear/default camera failed, trying front camera. Error: ' + err);
-            stopStreamTracks();
-            if (zxingReader) {
-                try { zxingReader.reset(); } catch (resetErr) {}
-            }
-
-            return startDecodeWithConstraints(true).then(function() {
-                try {
-                    stream = videoEl && videoEl.srcObject ? videoEl.srcObject : null;
-                } catch (e) {
-                    stream = null;
+        getPreferredCameraConfig().then(function(cameraConfig) {
+            return html5Qr.start(
+                cameraConfig,
+                {
+                    fps: 10,
+                    qrbox: { width: 240, height: 240 },
+                    rememberLastUsedCamera: true,
+                    aspectRatio: 1.3333
+                },
+                function(decodedText) {
+                    scanAttemptCount += 1;
+                    setState('scan success on attempt #' + scanAttemptCount);
+                    log('Attempt #' + scanAttemptCount + ': QR detected -> ' + decodedText);
+                    onScanSuccess(decodedText);
+                },
+                function() {
+                    scanNoResultCount += 1;
                 }
-                scanning = true;
-                setState('scanner running (front camera fallback)');
-                setScanButtons(true);
-                log('Front camera fallback is running.');
-            });
+            );
+        }).then(function() {
+            scannerRunning = true;
+            scanning = true;
+            setState('scanner running');
+            setScanButtons(true);
+            log('Scanner running with html5-qrcode.');
         }).catch(function(finalErr) {
+            scannerRunning = false;
             scanning = false;
             setScanButtons(false);
             setState('camera error');
-            log('Camera start failed: ' + finalErr);
+            log('Camera start failed: ' + (finalErr && finalErr.message ? finalErr.message : finalErr));
             showFeedback(false, 'Unable to access camera. Allow permission, then try again.');
         });
     }
@@ -708,37 +453,28 @@ $activeMembers = $membersStmt->fetchAll();
 
     function stopCameraScanner() {
         scanning = false;
-
-        if (fallbackLoopId) {
-            window.cancelAnimationFrame(fallbackLoopId);
-            fallbackLoopId = null;
+        if (!html5Qr || !scannerRunning) {
+            setScanButtons(false);
+            setState('scanner stopped');
+            return;
         }
 
-        if (zxingControls && typeof zxingControls.stop === 'function') {
-            try { zxingControls.stop(); } catch (e) {}
-        }
-        zxingControls = null;
-
-        if (zxingReader) {
-            try { zxingReader.reset(); } catch (e) {}
-        }
-
-        stopStreamTracks();
-
-        if (videoEl) {
-            try { videoEl.pause(); } catch (e) {}
-            videoEl.srcObject = null;
-        }
-
-        setScanButtons(false);
-        setState('scanner stopped | attempts: ' + scanAttemptCount + ', misses: ' + scanNoResultCount);
-        log('Scanner stopped. Total attempts=' + scanAttemptCount + ', misses=' + scanNoResultCount + '.');
+        html5Qr.stop().then(function() {
+            scannerRunning = false;
+            return html5Qr.clear();
+        }).catch(function() {
+            scannerRunning = false;
+        }).finally(function() {
+            setScanButtons(false);
+            setState('scanner stopped | attempts: ' + scanAttemptCount + ', misses: ' + scanNoResultCount);
+            log('Scanner stopped. Total attempts=' + scanAttemptCount + ', misses=' + scanNoResultCount + '.');
+        });
     }
     window.stopCameraScanner = stopCameraScanner;
 
      /* ══════════════════════════════════════════════════════════
          2. FILE/IMAGE UPLOAD SCANNING
-         Uses BarcodeDetector with jsQR fallback
+         Uses html5-qrcode image decoder
      ══════════════════════════════════════════════════════════ */
 
     // Drag-and-drop visual feedback
@@ -784,99 +520,27 @@ $activeMembers = $membersStmt->fetchAll();
             previewEl.innerHTML = '<img src="' + url + '" class="preview-img" alt="Uploaded QR">';
         }
 
-        if (scanning) stopCameraScanner();
+        var scanFilePromise = Promise.resolve();
+        if (scannerRunning) {
+            scanFilePromise = html5Qr.stop().then(function() {
+                scannerRunning = false;
+            }).catch(function() {
+                scannerRunning = false;
+            });
+        }
 
-        var img = new Image();
-        var imgUrl = URL.createObjectURL(file);
-
-        img.onload = function() {
-            try {
-                var c = document.createElement('canvas');
-                c.width = img.naturalWidth || img.width;
-                c.height = img.naturalHeight || img.height;
-                var ctx = c.getContext('2d', { willReadFrequently: true });
-                ctx.drawImage(img, 0, 0, c.width, c.height);
-
-                var decoded = '';
-
-                if (supportsZXing()) {
-                    var tempReader = new window.ZXing.BrowserMultiFormatReader();
-                    tempReader.decodeFromImageElement(img).then(function(result) {
-                        decoded = result && typeof result.getText === 'function' ? String(result.getText() || '') : '';
-                        if (decoded) {
-                            log('Image scan success (ZXing): ' + decoded);
-                            setState('image decoded');
-                            onScanSuccess(decoded);
-                            return;
-                        }
-
-                        if (typeof jsQR !== 'undefined') {
-                            var imgData = ctx.getImageData(0, 0, c.width, c.height);
-                            var qr = jsQR(imgData.data, c.width, c.height, { inversionAttempts: 'attemptBoth' });
-                            decoded = qr && qr.data ? qr.data : '';
-                        }
-
-                        if (decoded) {
-                            log('Image scan success (jsQR fallback): ' + decoded);
-                            setState('image decoded');
-                            onScanSuccess(decoded);
-                        } else {
-                            log('Image scan failed: no QR detected');
-                            setState('no QR in image');
-                            showFeedback(false, 'No QR code found in image. Try a clearer photo.');
-                        }
-                    }).catch(function(imgErr) {
-                        if (typeof jsQR !== 'undefined') {
-                            var fallbackData = ctx.getImageData(0, 0, c.width, c.height);
-                            var fallbackQr = jsQR(fallbackData.data, c.width, c.height, { inversionAttempts: 'attemptBoth' });
-                            decoded = fallbackQr && fallbackQr.data ? fallbackQr.data : '';
-                        }
-
-                        if (decoded) {
-                            log('Image scan success (jsQR fallback): ' + decoded);
-                            setState('image decoded');
-                            onScanSuccess(decoded);
-                        } else {
-                            log('Image scan decode error: ' + imgErr);
-                            setState('image decode error');
-                            showFeedback(false, 'Image scan failed. Try another image.');
-                        }
-                    });
-                } else if (typeof jsQR !== 'undefined') {
-                    var data = ctx.getImageData(0, 0, c.width, c.height);
-                    var result = jsQR(data.data, c.width, c.height, { inversionAttempts: 'attemptBoth' });
-                    decoded = result && result.data ? result.data : '';
-                    if (decoded) {
-                        log('Image scan success (jsQR only): ' + decoded);
-                        setState('image decoded');
-                        onScanSuccess(decoded);
-                    } else {
-                        log('Image scan failed: no QR detected');
-                        setState('no QR in image');
-                        showFeedback(false, 'No QR code found in image. Try a clearer photo.');
-                    }
-                } else {
-                    log('Image scan failed: no decoder available');
-                    setState('image decoder unavailable');
-                    showFeedback(false, 'No QR decoder available in browser.');
-                }
-            } catch (imgErr) {
-                log('Image scan exception: ' + imgErr);
-                setState('image decode exception');
-                showFeedback(false, 'Could not decode this image.');
-            } finally {
-                URL.revokeObjectURL(imgUrl);
-            }
-        };
-
-        img.onerror = function() {
-            URL.revokeObjectURL(imgUrl);
-            log('Image load failed for file: ' + file.name);
-            setState('image load failed');
-            showFeedback(false, 'Could not load selected image.');
-        };
-
-        img.src = imgUrl;
+        scanFilePromise.then(function() {
+            ensureHtml5Qr();
+            return html5Qr.scanFile(file, true);
+        }).then(function(decodedText) {
+            log('Image scan success: ' + decodedText);
+            setState('image decoded');
+            onScanSuccess(decodedText);
+        }).catch(function(err) {
+            log('Image scan failed: ' + (err && err.message ? err.message : err));
+            setState('no QR in image');
+            showFeedback(false, 'No QR code found in image. Try a clearer photo.');
+        });
 
         // Reset file input
         var fileInput = document.getElementById('qr-file-input');
