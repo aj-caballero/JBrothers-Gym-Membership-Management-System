@@ -20,41 +20,190 @@ $payments = $stmtPay->fetchAll();
 $photoUrl    = getMemberPhotoUrl($member->photo_path);
 $membershipId = $member->membership_id ?? '—';
 $qrImageUrl  = APP_URL . '/qrcode.php?data=' . rawurlencode($membershipId);
+$memberStatusClass = preg_replace('/[^a-z0-9_-]/', '-', strtolower(trim((string)($member->status ?? 'inactive'))));
 
 // Initials for avatar fallback
 $parts    = explode(' ', $member->full_name);
 $initials = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts[1],0,1) : ''));
 ?>
 
+<style>
+.member-hero-wrap {
+    background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-card) 100%);
+    padding: 28px;
+}
+
+.member-hero-row {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.member-avatar-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    min-width: 110px;
+}
+
+.member-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid var(--accent);
+    box-shadow: 0 0 20px var(--accent-ring);
+    flex-shrink: 0;
+}
+
+.member-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.member-avatar-fallback {
+    width: 100%;
+    height: 100%;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: 700;
+    color: #000;
+}
+
+.member-hero-info {
+    flex: 1;
+    min-width: 240px;
+}
+
+.member-meta {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+.member-id-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--radius-md);
+    padding: 8px 14px;
+    width: fit-content;
+}
+
+.member-id-chip i {
+    color: var(--accent);
+    font-size: 16px;
+}
+
+.member-id-chip span {
+    font-family: monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 1px;
+}
+
+.member-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+}
+
+.member-hero-qr {
+    text-align: center;
+    min-width: 160px;
+}
+
+.member-hero-qr-box {
+    background: white;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    display: inline-block;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+.member-hero-qr-box img {
+    width: 120px;
+    height: 120px;
+    display: block;
+}
+
+.member-hero-qr-note {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
+
+@media (max-width: 900px) {
+    .member-hero-wrap {
+        padding: 22px;
+    }
+
+    .member-hero-row {
+        align-items: flex-start;
+        gap: 18px;
+    }
+}
+
+@media (max-width: 640px) {
+    .member-hero-wrap {
+        padding: 18px;
+    }
+
+    .member-hero-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .member-avatar-block {
+        min-width: 0;
+    }
+
+    .member-hero-qr {
+        width: 100%;
+        text-align: left;
+    }
+}
+</style>
+
 <!-- Membership Card Hero -->
 <div class="card" style="margin-bottom:20px;overflow:visible;">
-    <div style="background:linear-gradient(135deg,var(--bg-elevated) 0%,var(--bg-card) 100%);padding:28px 28px 0;border-radius:var(--radius-lg) var(--radius-lg) 0 0;">
-        <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">
+    <div class="member-hero-wrap">
+        <div class="member-hero-row">
             <!-- Photo -->
-            <div style="position:relative;">
-                <div style="width:100px;height:100px;border-radius:50%;overflow:hidden;border:3px solid var(--accent);box-shadow:0 0 20px var(--accent-ring);">
+            <div class="member-avatar-block">
+                <div class="member-avatar">
                     <?php if ($photoUrl): ?>
-                        <img src="<?= htmlspecialchars($photoUrl) ?>?v=<?= time() ?>" style="width:100%;height:100%;object-fit:cover;">
+                        <img src="<?= htmlspecialchars($photoUrl) ?>?v=<?= time() ?>" alt="Member profile photo">
                     <?php else: ?>
-                        <div style="width:100%;height:100%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#000;"><?= $initials ?></div>
+                        <div class="member-avatar-fallback"><?= $initials ?></div>
                     <?php endif; ?>
                 </div>
-                <span class="badge badge-<?= strtolower($member->status) ?>" style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);white-space:nowrap;">
+                <span class="badge badge-<?= htmlspecialchars($memberStatusClass) ?>">
                     <?= $member->status ?>
                 </span>
             </div>
 
             <!-- Info -->
-            <div style="flex:1;padding-bottom:20px;">
+            <div class="member-hero-info">
                 <h2 style="margin:0 0 4px;font-size:22px;color:var(--text-primary);"><?= htmlspecialchars($member->full_name) ?></h2>
-                <div style="color:var(--text-muted);font-size:13px;margin-bottom:12px;"><?= htmlspecialchars($member->email) ?></div>
+                <div class="member-meta"><?= htmlspecialchars($member->email) ?></div>
 
-                <div style="display:flex;align-items:center;gap:10px;background:var(--bg-input);border:1px solid var(--border-accent);border-radius:var(--radius-md);padding:8px 14px;width:fit-content;">
-                    <i class="fas fa-id-card" style="color:var(--accent);font-size:16px;"></i>
-                    <span style="font-family:monospace;font-size:15px;font-weight:700;color:var(--accent);letter-spacing:1px;"><?= htmlspecialchars($membershipId) ?></span>
+                <div class="member-id-chip">
+                    <i class="fas fa-id-card"></i>
+                    <span><?= htmlspecialchars($membershipId) ?></span>
                 </div>
 
-                <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+                <div class="member-actions">
                     <a href="edit.php?id=<?= $member->id ?>" class="btn btn-sm btn-secondary"><i class="fas fa-pen"></i> Edit</a>
                     <a href="<?= APP_URL ?>/payments/add.php?member_id=<?= $member->id ?>" class="btn btn-sm btn-primary"><i class="fas fa-credit-card"></i> Add Payment</a>
                     <a href="id_card.php?id=<?= $member->id ?>" class="btn btn-sm btn-ghost" target="_blank"><i class="fas fa-id-card"></i> ID Card</a>
@@ -62,11 +211,11 @@ $initials = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts
             </div>
 
             <!-- QR Code -->
-            <div style="text-align:center;padding-bottom:20px;">
-                <div style="background:white;padding:12px;border-radius:var(--radius-md);display:inline-block;box-shadow:0 4px 16px rgba(0,0,0,0.4);">
-                    <img src="<?= htmlspecialchars($qrImageUrl) ?>" alt="Membership QR code" style="width:120px;height:120px;display:block;">
+            <div class="member-hero-qr">
+                <div class="member-hero-qr-box">
+                    <img src="<?= htmlspecialchars($qrImageUrl) ?>" alt="Membership QR code">
                 </div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Scan for attendance</div>
+                <div class="member-hero-qr-note">Scan for attendance</div>
             </div>
         </div>
     </div>
