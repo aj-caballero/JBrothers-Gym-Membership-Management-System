@@ -32,13 +32,16 @@ CREATE TABLE members (
     id INT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
-    password VARCHAR(255) NULL DEFAULT NULL,
     phone VARCHAR(20),
     address TEXT,
     date_of_birth DATE,
     gender ENUM('Male', 'Female', 'Other'),
     join_date DATE NOT NULL,
     status ENUM('Active', 'Inactive', 'Expired', 'Suspended') DEFAULT 'Inactive',
+    membership_id VARCHAR(30) UNIQUE,
+    photo_path VARCHAR(255),
+    password VARCHAR(255) NULL DEFAULT NULL COMMENT 'Legacy field - members no longer login via this system',
+    deleted_at DATETIME DEFAULT NULL COMMENT 'Soft delete timestamp',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -48,6 +51,7 @@ CREATE TABLE membership_plans (
     duration_days INT NOT NULL,
     price DECIMAL(10,2) NOT NULL,
     description TEXT,
+    deleted_at DATETIME DEFAULT NULL COMMENT 'Soft delete timestamp',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -104,3 +108,14 @@ CREATE TABLE notifications (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
 );
+
+-- ============================================================
+-- SCHEMA COMPLETE
+-- This script includes all migrations in a single consolidated file:
+-- ✓ Soft delete support (deleted_at columns on members & plans)
+-- ✓ Membership ID & photo support (membership_id, photo_path)
+-- ✓ MangoPay payment gateway (gateway fields in payments table)
+-- ✓ Staff-only portal (members table password marked as legacy)
+-- 
+-- No additional migrations needed - this is the complete current schema.
+-- ============================================================

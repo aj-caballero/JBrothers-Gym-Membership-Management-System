@@ -50,13 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if (!isset($error)) {
-                $membership_id  = generateMembershipId($pdo);
-                $defaultPassword = password_hash('password', PASSWORD_DEFAULT);
+                $membership_id = generateMembershipId($pdo);
 
-                $sql  = "INSERT INTO members (full_name, email, password, phone, address, date_of_birth, gender, join_date, status, membership_id, photo_path)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $sql  = "INSERT INTO members (full_name, email, phone, address, date_of_birth, gender, join_date, status, membership_id, photo_path, password)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)";
                 $stmt = $pdo->prepare($sql);
-                if ($stmt->execute([$full_name, $email, $defaultPassword, $phone, $address, $dob, $gender, $join_date, $status, $membership_id, $photo_path])) {
+                if ($stmt->execute([$full_name, $email, $phone, $address, $dob, $gender, $join_date, $status, $membership_id, $photo_path])) {
                     $new_id = $pdo->lastInsertId();
                     // Rename temp photo to final name
                     if ($photo_path && strpos($photo_path, 'tmp_') !== false) {

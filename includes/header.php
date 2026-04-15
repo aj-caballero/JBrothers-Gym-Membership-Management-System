@@ -5,9 +5,6 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/functions.php';
 
 require_login();
-if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'member') {
-    redirect('/member_panel/index.php');
-}
 
 // Automatically enforce module permissions based on folder structure
 $current_dir = basename(dirname($_SERVER['PHP_SELF']));

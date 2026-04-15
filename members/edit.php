@@ -49,7 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dob           = $_POST['date_of_birth'];
     $gender        = $_POST['gender'];
     $status        = $_POST['status'];
-    $reset_password= $_POST['reset_password'] ?? '';
     $photo_path    = $member->photo_path; // keep existing by default
 
     $dupStmt = $pdo->prepare("SELECT id FROM members WHERE email = ? AND id != ?");
@@ -82,14 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!isset($error)) {
-            if (!empty($reset_password)) {
-                $hashed = password_hash($reset_password, PASSWORD_DEFAULT);
-                $sql    = "UPDATE members SET full_name=?,email=?,password=?,phone=?,address=?,date_of_birth=?,gender=?,status=?,photo_path=? WHERE id=?";
-                $params = [$full_name,$email,$hashed,$phone,$address,$dob,$gender,$status,$photo_path,$id];
-            } else {
-                $sql    = "UPDATE members SET full_name=?,email=?,phone=?,address=?,date_of_birth=?,gender=?,status=?,photo_path=? WHERE id=?";
-                $params = [$full_name,$email,$phone,$address,$dob,$gender,$status,$photo_path,$id];
-            }
+            $sql    = "UPDATE members SET full_name=?,email=?,phone=?,address=?,date_of_birth=?,gender=?,status=?,photo_path=? WHERE id=?";
+            $params = [$full_name,$email,$phone,$address,$dob,$gender,$status,$photo_path,$id];
             $stmt = $pdo->prepare($sql);
             if ($stmt->execute($params)) {
                 redirect('/members/index.php');
@@ -190,12 +183,7 @@ $photoUrl = getMemberPhotoUrl($member->photo_path);
             </div>
         </div>
 
-        <div class="form-group">
-            <label>Reset Password <small style="color:var(--text-muted)">(Leave blank to keep current password)</small></label>
-            <input type="password" name="reset_password" class="form-control" placeholder="Enter new password">
-        </div>
-
-        <div class="form-row">
+<div class="form-row">
             <div class="form-group">
                 <label>Gender</label>
                 <select name="gender" class="form-control">

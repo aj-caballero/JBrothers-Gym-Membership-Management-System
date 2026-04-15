@@ -516,8 +516,7 @@ if (isset($_SESSION['user_id'])) {
         </form>
 
         <div class="login-hint">
-            <p><strong>Staff & Admin</strong> — use your work email and assigned password.<br>
-               <strong>Members</strong> — use your registered email. Default password is <strong>password</strong>.</p>
+            <p><strong>Staff & Admin Portal</strong> — Access is restricted to authorized gym staff and administrators. Use your assigned credentials to log in and manage gym operations.</p>
         </div>
     </div>
 
@@ -556,7 +555,7 @@ if (isset($_SESSION['user_id'])) {
             <div class="feature-icon"><i class="fas fa-shield-halved"></i></div>
             <div class="feature-text">
                 <h4>Role-Based Access</h4>
-                <p>Separate portals for admins, staff, and members with granular permissions.</p>
+                <p>Admin and staff roles with granular permissions for different gym management functions.</p>
             </div>
         </div>
     </div>
@@ -577,7 +576,7 @@ if (isset($_SESSION['user_id'])) {
 
             <h4>2. User Accounts &amp; Access</h4>
             <ul>
-                <li>Access to this system is granted solely to authorized staff, administrators, and registered gym members.</li>
+                <li>Access to this system is granted solely to authorized staff and administrators.</li>
                 <li>You are responsible for maintaining the confidentiality of your login credentials.</li>
                 <li>You must not share your account details with any other person.</li>
                 <li>Any activity conducted under your account is your sole responsibility.</li>
@@ -606,11 +605,11 @@ if (isset($_SESSION['user_id'])) {
                 <li>JBrothers Gym reserves the right to modify membership plans and fees with reasonable advance notice.</li>
             </ul>
 
-            <h4>6. Attendance &amp; Facility Use</h4>
+            <h4>6. Staff Responsibilities</h4>
             <ul>
-                <li>Members must check in upon each visit using the designated system.</li>
-                <li>Members are expected to follow all gym rules and regulations while on the premises.</li>
-                <li>JBrothers Gym is not liable for any injury, loss, or damage arising from the use of gym facilities.</li>
+                <li>Staff must accurately record attendance and membership information.</li>
+                <li>Staff are expected to follow all gym policies and maintain member confidentiality.</li>
+                <li>JBrothers Gym holds staff accountable for the accurate management of gym data and member interactions.</li>
             </ul>
 
             <h4>7. Account Suspension &amp; Termination</h4>

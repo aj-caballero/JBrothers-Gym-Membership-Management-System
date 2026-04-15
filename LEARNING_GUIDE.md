@@ -15,7 +15,6 @@ This is a **multi-role web application** that manages gym memberships. Think of 
 |---|---|---|
 | Admin Panel | Owner / Admin | `/dashboard.php` |
 | Staff Panel | Receptionist / Trainer | `/dashboard.php` (limited view) |
-| Member Portal | Gym Customers | `/member_panel/index.php` |
 
 The system's job is to answer these questions at any given moment:
 - Who are our members and are they still active?
@@ -45,6 +44,8 @@ GYM MEMBERSHIP/
 ├── auth/                ← IDENTITY & ACCESS. Who are you?
 │   ├── login.php        ← Checks your email+password, starts your session
 │   ├── logout.php       ← Destroys your session, sends you back to login
+│   ├── login.php        ← Authenticates staff and admin users
+│   ├── logout.php       ← Ends user session
 │   └── register.php     ← Creates a new Staff account (Admin-only action)
 │
 ├── admin/               ← OWNER-ONLY ZONE
@@ -76,10 +77,6 @@ GYM MEMBERSHIP/
 │
 ├── notifications/       ← NOTIFICATION CENTER
 │   └── index.php        ← System alerts (expiry warnings, etc.)
-│
-├── member_panel/        ← CUSTOMER PORTAL (isolated from admin)
-│   ├── index.php        ← Customer dashboard: my plan + recent attendance
-│   └── profile.php      ← Edit profile, change password
 │
 ├── database/
 │   └── gym_db.sql       ← The database blueprint (all tables + default data)
@@ -195,7 +192,7 @@ Step 3: header.php itself loads:
         ↓
 Step 4: require_login() — no session? → redirect to login
         ↓
-Step 5: Role isolation — member? → redirect to /member_panel/index.php
+Step 5: Role isolation — staff/admin only, no member access
         ↓
 Step 6: Module permission check — no permission? → redirect to dashboard
         ↓
@@ -283,7 +280,7 @@ if ($user && password_verify($password, $user->password)) {
     if ($member && password_verify($password, $member->password)) {
         // ✅ Member login
         $_SESSION['user_role'] = 'member';
-        redirect('/member_panel/index.php');
+        // Member access no longer supported
     }
 }
 ```

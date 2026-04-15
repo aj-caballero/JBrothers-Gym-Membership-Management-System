@@ -24,21 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Redirect to dashboard
         redirect('/dashboard.php');
     } else {
-        // Try checking members table
-        $stmt = $pdo->prepare("SELECT * FROM members WHERE email = ? LIMIT 1");
-        $stmt->execute([$email]);
-        $member = $stmt->fetch();
-        
-        if ($member && ($member->password !== null && password_verify($password, $member->password))) {
-            $_SESSION['user_id'] = $member->id;
-            $_SESSION['user_name'] = $member->full_name;
-            $_SESSION['user_role'] = 'member';
-            $_SESSION['user_email'] = $member->email;
-            redirect('/member_panel/index.php');
-        } else {
-            // Invalid credentials
-            redirect('/index.php?error=invalid');
-        }
+        // Invalid credentials
+        redirect('/index.php?error=invalid');
     }
 } else {
     redirect('/index.php');

@@ -4,11 +4,10 @@ A complete multi-role gym operations platform built with native PHP, MySQL/Maria
 
 ## Overview
 
-This project contains three application surfaces:
+This project contains two application surfaces:
 
 1. Admin Portal: full access to users, settings, all modules.
 2. Staff Portal: module access controlled by permission list.
-3. Member Portal: isolated self-service dashboard and profile area.
 
 Main goals of the system:
 
@@ -48,12 +47,7 @@ Main goals of the system:
 3. Automatic toggle between check-in and check-out for the same day.
 4. Live “today logs” refresh in attendance screen.
 
-### Member Portal
 
-1. Member dashboard with own membership status and recent attendance.
-2. Profile update support (phone/address/demographics).
-3. Password change with current password verification.
-4. Member card page with printable/downloadable QR ID card.
 
 ### Dashboard and Reporting
 
@@ -73,18 +67,9 @@ The project now uses:
 
 1. QR images are served by [qrcode.php](qrcode.php).
 2. Endpoint is authenticated (`require_login()`), and returns PNG.
-3. Card/profile pages render QR as standard image source:
+3. Card pages render QR as standard image source:
 	1. [members/id_card.php](members/id_card.php)
-	2. [member_panel/my_card.php](member_panel/my_card.php)
-	3. [members/view.php](members/view.php)
-	4. [member_panel/index.php](member_panel/index.php)
-
-### Scan Flow
-
-1. Frontend scanner in [attendance/index.php](attendance/index.php) decodes payload.
-2. Scanner posts both fields to backend:
-	1. `membership_id` (normalized value)
-	2. `qr_data` (raw scanned payload)
+	2. [members/view.php](members/view.php)
 3. Backend endpoint [attendance/scan.php](attendance/scan.php) parses multiple payload formats:
 	1. Plain membership ID
 	2. URL query payloads (`membership_id`, `member_id`, etc.)
@@ -137,7 +122,7 @@ GYM MEMBERSHIP/
 ├── attendance/
 ├── reports/
 ├── notifications/
-├── member_panel/
+
 ├── assets/
 │   ├── css/
 │   ├── js/
