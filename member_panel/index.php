@@ -111,7 +111,7 @@ $initials     = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($p
 <script>
 new QRCode(document.getElementById("member-qr"), {
     text: "<?= htmlspecialchars($membershipId) ?>",
-    width: 100, height: 100,
+    width: 140, height: 140,
     colorDark: "#000000", colorLight: "#ffffff",
     correctLevel: QRCode.CorrectLevel.H
 });

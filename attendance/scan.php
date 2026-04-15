@@ -7,33 +7,128 @@ require_login();
 
 header('Content-Type: application/json');
 
+function jsonResponse($success, $message, $extra = []) {
+    echo json_encode(array_merge([
+        'success' => (bool) $success,
+        'message' => $message,
+    ], $extra));
+    exit;
+}
+
+function parseMembershipCandidates($raw) {
+    $raw = trim((string) $raw);
+    if ($raw === '') {
+        return [];
+    }
+
+    $candidates = [$raw];
+
+    // Support QR content that is a URL with query params (e.g. ?membership_id=...)
+    if (filter_var($raw, FILTER_VALIDATE_URL)) {
+        $query = parse_url($raw, PHP_URL_QUERY);
+        if ($query) {
+            parse_str($query, $params);
+            foreach (['membership_id', 'member_id', 'id', 'mid'] as $key) {
+                if (!empty($params[$key])) {
+                    $candidates[] = trim((string) $params[$key]);
+                }
+            }
+        }
+    }
+
+    // Support QR content in JSON format
+    $json = json_decode($raw, true);
+    if (is_array($json)) {
+        foreach (['membership_id', 'member_id', 'id', 'mid'] as $key) {
+            if (!empty($json[$key])) {
+                $candidates[] = trim((string) $json[$key]);
+            }
+        }
+    }
+
+    // Support prefixed formats like MEMBER:GYM-2026-00001
+    if (preg_match('/^(?:member(?:ship)?(?:_id)?|id)\s*[:=-]\s*(.+)$/i', $raw, $m)) {
+        $candidates[] = trim($m[1]);
+    }
+
+    // Normalize and deduplicate candidates
+    $normalized = [];
+    foreach ($candidates as $candidate) {
+        $candidate = trim((string) $candidate, " \t\n\r\0\x0B\"'");
+        if ($candidate !== '') {
+            $normalized[] = $candidate;
+        }
+    }
+
+    return array_values(array_unique($normalized));
+}
+
+function fetchTodayRecentLogs($pdo) {
+    $today = date('Y-m-d');
+    $stmt = $pdo->prepare(
+        "SELECT a.time_in, a.time_out, m.full_name, m.photo_path
+         FROM attendance_logs a
+         JOIN members m ON a.member_id = m.id
+         WHERE DATE(a.time_in) = ?
+         ORDER BY a.time_in DESC
+         LIMIT 10"
+    );
+    $stmt->execute([$today]);
+
+    $rows = [];
+    foreach ($stmt->fetchAll() as $log) {
+        $rows[] = [
+            'name'      => $log->full_name,
+            'time_in'   => date('h:i A', strtotime($log->time_in)),
+            'time_out'  => $log->time_out ? date('h:i A', strtotime($log->time_out)) : null,
+            'photo_url' => getMemberPhotoUrl($log->photo_path),
+        ];
+    }
+
+    return $rows;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['action'] ?? '') === 'today_logs') {
+    jsonResponse(true, 'Latest logs fetched.', [
+        'recent_logs' => fetchTodayRecentLogs($pdo),
+    ]);
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'message' => 'Invalid request.']);
-    exit;
+    jsonResponse(false, 'Invalid request.');
 }
 
-$membership_id = trim($_POST['membership_id'] ?? '');
-if (empty($membership_id)) {
-    echo json_encode(['success' => false, 'message' => 'No QR data received.']);
-    exit;
+$rawQr = trim($_POST['membership_id'] ?? $_POST['qr_data'] ?? '');
+if ($rawQr === '') {
+    jsonResponse(false, 'No QR data received.');
 }
 
-// Look up member by membership_id
-$stmt = $pdo->prepare("SELECT id, full_name, status, deleted_at FROM members WHERE membership_id = ?");
-$stmt->execute([$membership_id]);
-$member = $stmt->fetch();
+$candidates = parseMembershipCandidates($rawQr);
+$member = null;
+
+foreach ($candidates as $candidate) {
+    $isNumericId = ctype_digit($candidate);
+    $stmt = $pdo->prepare(
+        "SELECT id, full_name, status, deleted_at
+         FROM members
+         WHERE membership_id = ? OR (? = 1 AND id = ?)
+         LIMIT 1"
+    );
+    $stmt->execute([$candidate, $isNumericId ? 1 : 0, $isNumericId ? (int) $candidate : 0]);
+    $member = $stmt->fetch();
+    if ($member) {
+        break;
+    }
+}
 
 if (!$member) {
-    echo json_encode(['success' => false, 'message' => 'Unrecognised QR code. Member not found.']);
-    exit;
+    jsonResponse(false, 'Unrecognised QR code. Member not found.');
 }
 if ($member->deleted_at !== null) {
-    echo json_encode(['success' => false, 'message' => 'This membership has been archived.']);
-    exit;
+    jsonResponse(false, 'This membership has been archived.');
 }
 if ($member->status !== 'Active') {
-    echo json_encode(['success' => false, 'message' => "Access Denied: Membership is {$member->status}."]);
-    exit;
+    jsonResponse(false, "Access Denied: Membership is {$member->status}.");
 }
 
 $today      = date('Y-m-d');
@@ -48,22 +143,24 @@ $openLog = $checkStmt->fetch();
 if ($openLog) {
     // Check out
     $pdo->prepare("UPDATE attendance_logs SET time_out = NOW() WHERE id = ?")->execute([$openLog->id]);
-    echo json_encode([
-        'success' => true,
+    $recentLogs = fetchTodayRecentLogs($pdo);
+    jsonResponse(true,
+        "$name checked OUT successfully.", [
         'action'  => 'out',
         'name'    => $name,
         'time'    => date('h:i A'),
-        'message' => "$name checked OUT successfully."
+        'recent_logs' => $recentLogs,
     ]);
 } else {
     // Check in
     $pdo->prepare("INSERT INTO attendance_logs (member_id, time_in) VALUES (?, NOW())")->execute([$member_id]);
-    echo json_encode([
-        'success' => true,
+    $recentLogs = fetchTodayRecentLogs($pdo);
+    jsonResponse(true,
+        "$name checked IN successfully.", [
         'action'  => 'in',
         'name'    => $name,
         'time'    => date('h:i A'),
-        'message' => "$name checked IN successfully."
+        'recent_logs' => $recentLogs,
     ]);
 }
 ?>

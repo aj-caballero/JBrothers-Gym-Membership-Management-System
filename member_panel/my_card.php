@@ -91,7 +91,7 @@ body { background: #0a0a0f !important; min-height: 100vh; display: flex; flex-di
 <script>
 new QRCode(document.getElementById("card-qr"), {
     text: "<?= htmlspecialchars($membershipId) ?>",
-    width: 64, height: 64,
+    width: 96, height: 96,
     colorDark: "#000000", colorLight: "#ffffff",
     correctLevel: QRCode.CorrectLevel.H
 });
