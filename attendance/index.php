@@ -366,13 +366,39 @@ $activeMembers = $membersStmt->fetchAll();
         if (stopBtn) stopBtn.style.display = isScanning ? 'inline-flex' : 'none';
     }
 
-    function ensureHtml5Qr() {
-        if (!window.Html5Qrcode) {
-            throw new Error('html5-qrcode is not loaded.');
-        }
-        if (!html5Qr) {
-            html5Qr = new Html5Qrcode('qr-reader');
-        }
+    function ensureHtml5Qr(timeoutMs) {
+        timeoutMs = timeoutMs || 5000;
+
+        return new Promise(function(resolve, reject) {
+            var startedAt = Date.now();
+
+            function finalizeIfReady() {
+                if (!window.Html5Qrcode) {
+                    return false;
+                }
+                if (!html5Qr) {
+                    html5Qr = new Html5Qrcode('qr-reader');
+                }
+                resolve(html5Qr);
+                return true;
+            }
+
+            if (finalizeIfReady()) {
+                return;
+            }
+
+            var timer = setInterval(function() {
+                if (finalizeIfReady()) {
+                    clearInterval(timer);
+                    return;
+                }
+
+                if ((Date.now() - startedAt) >= timeoutMs) {
+                    clearInterval(timer);
+                    reject(new Error('html5-qrcode is not loaded.'));
+                }
+            }, 100);
+        });
     }
 
     function getPreferredCameraConfig() {
@@ -406,16 +432,11 @@ $activeMembers = $membersStmt->fetchAll();
         log('Starting camera scanner.');
         setScanButtons(false);
 
-        try {
-            ensureHtml5Qr();
-        } catch (initErr) {
-            showFeedback(false, 'QR scanner library failed to load.');
-            setState('scanner unavailable');
-            log(String(initErr));
-            return;
-        }
+        setState('loading scanner library...');
 
-        getPreferredCameraConfig().then(function(cameraConfig) {
+        ensureHtml5Qr().then(function() {
+            return getPreferredCameraConfig();
+        }).then(function(cameraConfig) {
             return html5Qr.start(
                 cameraConfig,
                 {
@@ -444,8 +465,16 @@ $activeMembers = $membersStmt->fetchAll();
             scannerRunning = false;
             scanning = false;
             setScanButtons(false);
+            var errorText = (finalErr && finalErr.message ? finalErr.message : String(finalErr || 'Unknown error'));
+            log('Camera start failed: ' + errorText);
+
+            if (errorText.indexOf('html5-qrcode is not loaded') !== -1) {
+                setState('scanner unavailable');
+                showFeedback(false, 'QR scanner library failed to load. Please check internet access and refresh.');
+                return;
+            }
+
             setState('camera error');
-            log('Camera start failed: ' + (finalErr && finalErr.message ? finalErr.message : finalErr));
             showFeedback(false, 'Unable to access camera. Allow permission, then try again.');
         });
     }
@@ -530,7 +559,8 @@ $activeMembers = $membersStmt->fetchAll();
         }
 
         scanFilePromise.then(function() {
-            ensureHtml5Qr();
+            return ensureHtml5Qr();
+        }).then(function() {
             return html5Qr.scanFile(file, true);
         }).then(function(decodedText) {
             log('Image scan success: ' + decodedText);
