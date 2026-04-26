@@ -89,6 +89,13 @@ $initials = strtoupper(substr($gymName, 0, 1));
             </a>
         </li>
 
+        <li class="nav-item <?= ($current_dir === 'admin' && $current_page === 'login_logs.php') ? 'active' : '' ?>">
+            <a href="<?= APP_URL ?>/admin/login_logs.php">
+                <span class="nav-icon"><i class="fas fa-history"></i></span>
+                Login Logs
+            </a>
+        </li>
+
         <li class="nav-item <?= ($current_dir === 'admin' && $current_page === 'settings.php') ? 'active' : '' ?>">
             <a href="<?= APP_URL ?>/admin/settings.php">
                 <span class="nav-icon"><i class="fas fa-sliders"></i></span>

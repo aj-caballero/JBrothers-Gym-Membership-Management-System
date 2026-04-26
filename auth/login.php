@@ -15,6 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = $stmt->fetch();
 
     if ($user && password_verify($password, $user->password)) {
+        // Log success
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $logStmt = $pdo->prepare("INSERT INTO login_logs (user_id, email_attempt, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'Success')");
+        $logStmt->execute([$user->id, $email, $ip, $ua]);
+
         $_SESSION['user_id'] = $user->id;
         $_SESSION['user_name'] = $user->full_name;
         $_SESSION['user_role'] = $user->role;
@@ -24,6 +30,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Redirect to dashboard
         redirect('/dashboard.php');
     } else {
+        // Log failure
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $userId = $user ? $user->id : null;
+        $logStmt = $pdo->prepare("INSERT INTO login_logs (user_id, email_attempt, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'Failed')");
+        $logStmt->execute([$userId, $email, $ip, $ua]);
+
         // Invalid credentials
         redirect('/index.php?error=invalid');
     }

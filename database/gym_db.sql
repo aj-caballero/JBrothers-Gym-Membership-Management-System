@@ -85,9 +85,11 @@ CREATE TABLE payments (
     gateway_payload TEXT NULL,
     payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     status ENUM('Paid', 'Pending', 'Cancelled') DEFAULT 'Paid',
+    processed_by INT NULL,
     FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
     FOREIGN KEY (requested_plan_id) REFERENCES membership_plans(id) ON DELETE SET NULL,
-    FOREIGN KEY (membership_id) REFERENCES memberships(id) ON DELETE SET NULL
+    FOREIGN KEY (membership_id) REFERENCES memberships(id) ON DELETE SET NULL,
+    FOREIGN KEY (processed_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE attendance_logs (
@@ -109,6 +111,17 @@ CREATE TABLE notifications (
     FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
 );
 
+CREATE TABLE login_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    email_attempt VARCHAR(100) NOT NULL,
+    ip_address VARCHAR(50),
+    user_agent TEXT,
+    status ENUM('Success', 'Failed') NOT NULL,
+    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- ============================================================
 -- SCHEMA COMPLETE
 -- This script includes all migrations in a single consolidated file:
@@ -116,6 +129,8 @@ CREATE TABLE notifications (
 -- ✓ Membership ID & photo support (membership_id, photo_path)
 -- ✓ PayMongo payment gateway (gateway fields in payments table)
 -- ✓ Staff-only portal (members table password marked as legacy)
+-- ✓ Payment processing audit (processed_by in payments table)
+-- ✓ Login activity tracking (login_logs table)
 -- 
 -- No additional migrations needed - this is the complete current schema.
 -- ============================================================

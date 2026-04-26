@@ -17,6 +17,10 @@ $stmtPay = $pdo->prepare("SELECT * FROM payments WHERE member_id = ? ORDER BY pa
 $stmtPay->execute([$id]);
 $payments = $stmtPay->fetchAll();
 
+$stmtAtt = $pdo->prepare("SELECT * FROM attendance_logs WHERE member_id = ? ORDER BY time_in DESC LIMIT 50");
+$stmtAtt->execute([$id]);
+$attendanceLogs = $stmtAtt->fetchAll();
+
 $photoUrl    = getMemberPhotoUrl($member->photo_path);
 $membershipId = $member->membership_id ?? '—';
 $qrImageUrl  = APP_URL . '/qrcode.php?data=' . rawurlencode($membershipId);
@@ -275,6 +279,34 @@ $initials = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts
                 <?php endforeach; ?>
                 <?php if (empty($payments)): ?>
                     <tr><td colspan="4"><div class="empty-state"><div class="empty-icon"><i class="fas fa-receipt"></i></div><h3>No payments</h3></div></td></tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Attendance History -->
+<div class="card">
+    <div class="card-header"><h3 class="card-title">Attendance History</h3></div>
+    <div class="table-responsive">
+        <table>
+            <thead><tr><th>Date</th><th>Time In</th><th>Time Out</th></tr></thead>
+            <tbody>
+                <?php foreach ($attendanceLogs as $log): ?>
+                    <tr>
+                        <td><?= date('M d, Y', strtotime($log->time_in)) ?></td>
+                        <td><span class="badge badge-paid"><?= date('h:i A', strtotime($log->time_in)) ?></span></td>
+                        <td>
+                            <?php if ($log->time_out): ?>
+                                <span class="badge badge-inactive"><?= date('h:i A', strtotime($log->time_out)) ?></span>
+                            <?php else: ?>
+                                <span style="color:var(--text-muted);font-size:13px;">Not logged</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (empty($attendanceLogs)): ?>
+                    <tr><td colspan="3"><div class="empty-state"><div class="empty-icon"><i class="fas fa-clock"></i></div><h3>No attendance records</h3></div></td></tr>
                 <?php endif; ?>
             </tbody>
         </table>

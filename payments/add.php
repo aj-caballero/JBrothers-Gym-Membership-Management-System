@@ -65,8 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (PAYMONGO_CONFIGURED) {
                     // ── Real PayMongo API flow ──
                     // 1. Create a PENDING payment record (no membership yet)
-                    $pendingCols   = ['member_id', 'amount', 'payment_method', 'payment_date', 'status'];
-                    $pendingParams = [$member_id, $amount, 'PayMongo', 'Pending'];
+                    $pendingCols   = ['member_id', 'amount', 'payment_method', 'payment_date', 'status', 'processed_by'];
+                    $pendingParams = [$member_id, $amount, 'PayMongo', 'Pending', $_SESSION['user_id'] ?? null];
 
                     if ($hasRequestedPlanColumn) {
                         array_splice($pendingCols, 1, 0, ['requested_plan_id']);
@@ -145,6 +145,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $columns[] = 'payment_date';
             $columns[] = 'status';
             $params[] = $paymentStatus;
+
+            $columns[] = 'processed_by';
+            $params[] = $_SESSION['user_id'] ?? null;
 
             if ($hasGatewayColumns) {
                 $columns[] = 'gateway';

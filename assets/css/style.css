@@ -427,6 +427,7 @@ a:hover { color: var(--accent); }
     padding: 22px;
 }
 
+
 /* ── Stat Cards ──────────────────────────────────────────────── */
 .stats-grid {
     display: grid;

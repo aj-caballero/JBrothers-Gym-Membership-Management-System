@@ -63,12 +63,14 @@ try {
         $gatewayStatus = 'paid';
     }
 
+    $processorId = $_SESSION['user_id'] ?? null;
+
     if ($hasGatewayStatusColumn) {
-        $updatePay = $pdo->prepare("UPDATE payments SET membership_id = ?, status = 'Paid', gateway_status = ? WHERE id = ?");
-        $updatePay->execute([$membershipId, $gatewayStatus, $paymentId]);
+        $updatePay = $pdo->prepare("UPDATE payments SET membership_id = ?, status = 'Paid', gateway_status = ?, processed_by = ? WHERE id = ?");
+        $updatePay->execute([$membershipId, $gatewayStatus, $processorId, $paymentId]);
     } else {
-        $updatePay = $pdo->prepare("UPDATE payments SET membership_id = ?, status = 'Paid' WHERE id = ?");
-        $updatePay->execute([$membershipId, $paymentId]);
+        $updatePay = $pdo->prepare("UPDATE payments SET membership_id = ?, status = 'Paid', processed_by = ? WHERE id = ?");
+        $updatePay->execute([$membershipId, $processorId, $paymentId]);
     }
 
     $updateMember = $pdo->prepare("UPDATE members SET status = 'Active' WHERE id = ?");
