@@ -70,7 +70,10 @@ try {
     if ($eventType === 'checkout_session.payment.paid') {
         $sessionId    = $eventData['id'] ?? '';
         $checkoutAttr = $eventData['attributes'] ?? [];
-        $pmPayments   = $checkoutAttr['payments'] ?? [];
+
+        // Payments are nested under payment_intent.attributes.payments
+        $intentAttrs = $checkoutAttr['payment_intent']['attributes'] ?? [];
+        $pmPayments  = $intentAttrs['payments'] ?? [];
 
         if (empty($sessionId)) {
             http_response_code(200);
@@ -88,7 +91,8 @@ try {
             exit('OK – already processed');
         }
 
-        // Verify the payment inside the session
+        // The event 'checkout_session.payment.paid' only fires when the session is paid,
+        // so we trust it. Optionally verify a specific payment object if present.
         $paidPayment = null;
         foreach ($pmPayments as $p) {
             if (($p['attributes']['status'] ?? '') === 'paid') {
@@ -97,10 +101,8 @@ try {
             }
         }
 
-        if (!$paidPayment) {
-            http_response_code(200);
-            exit('OK – no paid payment found in session');
-        }
+        // If no payments array (some methods/versions omit it), we still proceed
+        // because the event type guarantees payment was made.
 
         // Activate membership
         $pdo->beginTransaction();

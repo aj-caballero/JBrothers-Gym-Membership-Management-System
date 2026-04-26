@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // ── Real PayMongo API flow ──
                     // 1. Create a PENDING payment record (no membership yet)
                     $pendingCols   = ['member_id', 'amount', 'payment_method', 'payment_date', 'status'];
-                    $pendingParams = [$member_id, $amount, 'PayMongo', 'Paid'];
+                    $pendingParams = [$member_id, $amount, 'PayMongo', 'Pending'];
 
                     if ($hasRequestedPlanColumn) {
                         array_splice($pendingCols, 1, 0, ['requested_plan_id']);

@@ -1,1 +1,4 @@
 vendor/
+
+# PayMongo keys – never commit real API keys
+config/paymongo.php

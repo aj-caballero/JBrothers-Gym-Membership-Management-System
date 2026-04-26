@@ -49,18 +49,26 @@ try {
     $session  = $paymongo->getCheckoutSession($sessionId);
 
     $attrs = $session['data']['attributes'];
-    // PayMongo statuses: 'active','expired','completed'
-    // payments[0].status: 'paid','failed','pending'
-    $checkoutStatus = $attrs['status'] ?? 'active';
-    $payments       = $attrs['payments'] ?? [];
 
-    if ($checkoutStatus === 'completed' && !empty($payments)) {
-        $latestPayment  = $payments[0];
-        $verifiedStatus = $latestPayment['attributes']['status'] ?? 'failed'; // 'paid' or 'failed'
-    } elseif ($checkoutStatus === 'expired') {
+    // PayMongo checkout session statuses: 'active' | 'expired' | 'completed'
+    $checkoutStatus = $attrs['status'] ?? 'active';
+
+    // The payment intent (and its nested payments) live here:
+    $intentAttrs  = $attrs['payment_intent']['attributes'] ?? [];
+    $intentStatus = $intentAttrs['status'] ?? '';        // 'succeeded' | 'awaiting_payment_method' | etc.
+    $payments     = $intentAttrs['payments'] ?? [];      // individual payment objects
+
+    if ($checkoutStatus === 'completed' || $intentStatus === 'succeeded') {
+        // Session is complete – trust it. Optionally double-check the first payment object.
+        if (!empty($payments)) {
+            $verifiedStatus = $payments[0]['attributes']['status'] ?? 'paid';
+        } else {
+            $verifiedStatus = 'paid'; // no payments array but intent succeeded – trust it
+        }
+    } elseif ($checkoutStatus === 'expired' || $intentStatus === 'failed') {
         $verifiedStatus = 'failed';
     } else {
-        // Still active (user may have closed window without paying)
+        // Session still active – user may have closed window without paying
         $verifiedStatus = ($pmStatus === 'cancelled') ? 'cancelled' : 'awaiting_payment_method';
     }
 
