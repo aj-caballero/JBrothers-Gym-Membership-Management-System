@@ -57,7 +57,6 @@ $members = $stmt->fetchAll();
             <option value="">All Statuses</option>
             <option value="Active"    <?= $statusFilter==='Active'    ? 'selected' : '' ?>>Active</option>
             <option value="Inactive"  <?= $statusFilter==='Inactive'  ? 'selected' : '' ?>>Inactive</option>
-            <option value="Expired"   <?= $statusFilter==='Expired'   ? 'selected' : '' ?>>Expired</option>
             <option value="Suspended" <?= $statusFilter==='Suspended' ? 'selected' : '' ?>>Suspended</option>
         </select>
         <button type="submit" class="btn btn-primary">Filter</button>
