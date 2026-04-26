@@ -78,7 +78,7 @@ CREATE TABLE payments (
     requested_plan_id INT NULL,
     membership_id INT,
     amount DECIMAL(10,2) NOT NULL,
-    payment_method ENUM('Cash', 'GCash', 'Card', 'MangoPay') NOT NULL,
+    payment_method ENUM('Cash', 'GCash', 'Card', 'PayMongo') NOT NULL,
     gateway VARCHAR(50) NULL,
     gateway_transaction_id VARCHAR(80) NULL,
     gateway_status VARCHAR(30) NULL,
@@ -114,7 +114,7 @@ CREATE TABLE notifications (
 -- This script includes all migrations in a single consolidated file:
 -- ✓ Soft delete support (deleted_at columns on members & plans)
 -- ✓ Membership ID & photo support (membership_id, photo_path)
--- ✓ MangoPay payment gateway (gateway fields in payments table)
+-- ✓ PayMongo payment gateway (gateway fields in payments table)
 -- ✓ Staff-only portal (members table password marked as legacy)
 -- 
 -- No additional migrations needed - this is the complete current schema.

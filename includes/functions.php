@@ -82,9 +82,9 @@ function dbHasColumn($pdo, $table, $column) {
 }
 
 /**
- * Detect whether payments.payment_method enum already supports MangoPay.
+ * Detect whether payments.payment_method enum already supports PayMongo.
  */
-function paymentsSupportsMangoPay($pdo) {
+function paymentsSupportsPayMongo($pdo) {
     static $result = null;
     if ($result !== null) {
         return $result;
@@ -94,7 +94,7 @@ function paymentsSupportsMangoPay($pdo) {
         $stmt = $pdo->query("SHOW COLUMNS FROM payments LIKE 'payment_method'");
         $col = $stmt->fetch();
         $type = strtolower((string)($col->Type ?? ''));
-        $result = strpos($type, "'mangopay'") !== false;
+        $result = strpos($type, "'paymongo'") !== false;
     } catch (Exception $e) {
         $result = false;
     }
@@ -103,46 +103,46 @@ function paymentsSupportsMangoPay($pdo) {
 }
 
 /**
- * Simulate a MangoPay card payment for local testing/training.
+ * Simulate a PayMongo payment for local testing/training.
+ * In production replace this function body with real PayMongo API calls.
  */
-function simulateMangoPayPayment($amount, $memberName, $memberEmail, $forcedOutcome = 'succeeded') {
+function simulatePayMongoPayment($amount, $memberName, $memberEmail, $forcedOutcome = 'paid') {
     $forcedOutcome = strtolower(trim((string) $forcedOutcome));
-    $allowedOutcomes = ['succeeded', 'pending', 'failed'];
+    $allowedOutcomes = ['paid', 'pending', 'failed'];
     if (!in_array($forcedOutcome, $allowedOutcomes, true)) {
-        $forcedOutcome = 'succeeded';
+        $forcedOutcome = 'paid';
     }
 
-    $txnId = 'MGP-SIM-' . date('YmdHis') . '-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
-    $walletId = 'WLT-SIM-' . strtoupper(substr(sha1((string)$memberEmail), 0, 10));
+    // PayMongo uses IDs in the format pi_xxxx (PaymentIntent) or lnk_xxxx (Link)
+    $txnId = 'pi_SIM_' . date('YmdHis') . '_' . strtolower(substr(bin2hex(random_bytes(4)), 0, 8));
 
     $statusMap = [
-        'succeeded' => 'SUCCEEDED',
-        'pending'   => 'PENDING',
-        'failed'    => 'FAILED',
+        'paid'    => 'paid',
+        'pending' => 'awaiting_payment_method',
+        'failed'  => 'failed',
     ];
 
     $messages = [
-        'SUCCEEDED' => 'MangoPay simulation approved.',
-        'PENDING'   => 'MangoPay simulation is pending confirmation.',
-        'FAILED'    => 'MangoPay simulation declined this payment.',
+        'paid'                    => 'PayMongo simulation: payment succeeded.',
+        'awaiting_payment_method' => 'PayMongo simulation: payment is pending confirmation.',
+        'failed'                  => 'PayMongo simulation: payment was declined.',
     ];
 
     $gatewayStatus = $statusMap[$forcedOutcome];
 
     return [
-        'success' => $gatewayStatus === 'SUCCEEDED',
-        'gateway' => 'MangoPay',
+        'success'        => $gatewayStatus === 'paid',
+        'gateway'        => 'PayMongo',
         'gateway_status' => $gatewayStatus,
         'transaction_id' => $txnId,
-        'wallet_id' => $walletId,
-        'amount' => (float) $amount,
-        'currency' => 'PHP',
-        'member' => [
-            'name' => (string) $memberName,
+        'amount'         => (float) $amount,
+        'currency'       => 'PHP',
+        'member'         => [
+            'name'  => (string) $memberName,
             'email' => (string) $memberEmail,
         ],
         'processed_at' => date('Y-m-d H:i:s'),
-        'message' => $messages[$gatewayStatus],
+        'message'      => $messages[$gatewayStatus],
     ];
 }
 ?>

@@ -102,7 +102,7 @@ if (!$pay) {
     <?php if (property_exists($pay, 'gateway_transaction_id') && !empty($pay->gateway_transaction_id)): ?>
         <div class="row mt-2">
             <span>Gateway:</span>
-            <span><?= htmlspecialchars((property_exists($pay, 'gateway') ? $pay->gateway : 'MangoPay') ?? 'MangoPay') ?></span>
+            <span><?= htmlspecialchars((property_exists($pay, 'gateway') ? $pay->gateway : 'PayMongo') ?? 'PayMongo') ?></span>
         </div>
         <div class="row mt-2">
             <span>Gateway Ref:</span>

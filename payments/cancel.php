@@ -40,8 +40,8 @@ try {
     }
 
     $gatewayStatus = $hasGatewayStatusColumn ? ($payment->gateway_status ?? null) : null;
-    if ($hasGatewayStatusColumn && $payment->payment_method === 'MangoPay') {
-        $gatewayStatus = 'CANCELLED';
+    if ($hasGatewayStatusColumn && $payment->payment_method === 'PayMongo') {
+        $gatewayStatus = 'cancelled';
     }
 
     if ($hasGatewayStatusColumn) {

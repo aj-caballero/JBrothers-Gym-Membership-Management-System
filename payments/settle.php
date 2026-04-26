@@ -59,8 +59,8 @@ try {
     $membershipId = $pdo->lastInsertId();
 
     $gatewayStatus = $hasGatewayStatusColumn ? ($payment->gateway_status ?? null) : null;
-    if ($hasGatewayStatusColumn && $payment->payment_method === 'MangoPay' && strtoupper((string)$gatewayStatus) === 'PENDING') {
-        $gatewayStatus = 'SUCCEEDED';
+    if ($hasGatewayStatusColumn && $payment->payment_method === 'PayMongo' && $gatewayStatus === 'awaiting_payment_method') {
+        $gatewayStatus = 'paid';
     }
 
     if ($hasGatewayStatusColumn) {

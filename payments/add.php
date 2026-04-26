@@ -2,6 +2,8 @@
 // C:/Users/Kyle/GYM MEMBERSHIP/payments/add.php
 $pageTitle = 'Record Payment & Membership';
 require_once '../includes/header.php';
+require_once '../config/paymongo.php';
+require_once '../includes/paymongo.php';
 
 // Pre-fill member if passed
 $pre_member_id = $_GET['member_id'] ?? 0;
@@ -12,7 +14,7 @@ $members = $membersStmt->fetchAll();
 $plansStmt = $pdo->query("SELECT * FROM membership_plans WHERE deleted_at IS NULL ORDER BY price ASC");
 $plans = $plansStmt->fetchAll();
 
-$supportsMangoMethod = paymentsSupportsMangoPay($pdo);
+$supportsPayMongoMethod = paymentsSupportsPayMongo($pdo);
 $hasRequestedPlanColumn = dbHasColumn($pdo, 'payments', 'requested_plan_id');
 $hasGatewayColumns = dbHasColumn($pdo, 'payments', 'gateway')
     && dbHasColumn($pdo, 'payments', 'gateway_transaction_id')
@@ -24,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $plan_id = (int) $_POST['plan_id'];
     $amount = (float) $_POST['amount'];
     $method = trim((string) ($_POST['payment_method'] ?? 'Cash'));
-    $mangoOutcome = trim((string) ($_POST['mangopay_outcome'] ?? 'succeeded'));
+    $payMongoOutcome = trim((string) ($_POST['paymongo_outcome'] ?? 'paid'));
 
     if ($member_id > 0 && $plan_id > 0 && $amount >= 0) {
         try {
@@ -55,22 +57,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $paymentStatus = 'Paid';
             $membership_id = null;
 
-            if ($method === 'MangoPay') {
-                if (!$supportsMangoMethod) {
-                    throw new Exception('MangoPay method is not yet available in this database. Run mangopay_simulation_migration.sql first.');
-                }
-                $sim = simulateMangoPayPayment($amount, $memberInfo->full_name ?? '', $memberInfo->email ?? '', $mangoOutcome);
-                $gateway = $sim['gateway'];
-                $gatewayTxnId = $sim['transaction_id'];
-                $gatewayStatus = $sim['gateway_status'];
-                $gatewayPayload = json_encode($sim);
-
-                if ($gatewayStatus === 'FAILED') {
-                    throw new Exception($sim['message'] . ' No membership was activated.');
+            if ($method === 'PayMongo') {
+                if (!$supportsPayMongoMethod) {
+                    throw new Exception('PayMongo method is not yet available in this database. Run paymongo_migration.sql first.');
                 }
 
-                if ($gatewayStatus === 'PENDING') {
-                    $paymentStatus = 'Pending';
+                if (PAYMONGO_CONFIGURED) {
+                    // ── Real PayMongo API flow ──
+                    // 1. Create a PENDING payment record (no membership yet)
+                    $pendingCols   = ['member_id', 'amount', 'payment_method', 'payment_date', 'status'];
+                    $pendingParams = [$member_id, $amount, 'PayMongo', 'Paid'];
+
+                    if ($hasRequestedPlanColumn) {
+                        array_splice($pendingCols, 1, 0, ['requested_plan_id']);
+                        array_splice($pendingParams, 1, 0, [$plan_id]);
+                    }
+                    if ($hasGatewayColumns) {
+                        $pendingCols[]   = 'gateway';
+                        $pendingParams[] = 'PayMongo';
+                        $pendingCols[]   = 'gateway_status';
+                        $pendingParams[] = 'awaiting_payment_method';
+                    }
+
+                    // Build INSERT with NOW() for payment_date
+                    $valParts = [];
+                    $insertParams = [];
+                    foreach ($pendingCols as $col) {
+                        if ($col === 'payment_date') {
+                            $valParts[] = 'NOW()';
+                        } else {
+                            $valParts[] = '?';
+                            $insertParams[] = array_shift($pendingParams);
+                        }
+                    }
+                    $insertSql = 'INSERT INTO payments (' . implode(', ', $pendingCols) . ') VALUES (' . implode(', ', $valParts) . ')';
+                    $pdo->prepare($insertSql)->execute($insertParams);
+                    $pendingPaymentId = $pdo->lastInsertId();
+
+                    $pdo->commit();
+
+                    // 2. Redirect to the PayMongo checkout initiator
+                    redirect('/payments/paymongo_checkout.php?payment_id=' . $pendingPaymentId);
+
+                } else {
+                    // ── Simulation fallback (no real keys configured) ──
+                    $sim = simulatePayMongoPayment($amount, $memberInfo->full_name ?? '', $memberInfo->email ?? '', $payMongoOutcome);
+                    $gateway = $sim['gateway'];
+                    $gatewayTxnId = $sim['transaction_id'];
+                    $gatewayStatus = $sim['gateway_status'];
+                    $gatewayPayload = json_encode($sim);
+
+                    if ($gatewayStatus === 'failed') {
+                        throw new Exception($sim['message'] . ' No membership was activated.');
+                    }
+
+                    if ($gatewayStatus === 'awaiting_payment_method') {
+                        $paymentStatus = 'Pending';
+                    }
                 }
             }
 
@@ -192,33 +235,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="form-group">
                 <label>Payment Method</label>
-                <select name="payment_method" id="payment_method" class="form-control" onchange="toggleMangoOptions()">
+                <select name="payment_method" id="payment_method" class="form-control" onchange="togglePayMongoOptions()">
                     <option value="Cash">Cash</option>
                     <option value="GCash">GCash</option>
                     <option value="Card">Card</option>
-                    <?php if ($supportsMangoMethod): ?>
-                        <option value="MangoPay">MangoPay (Simulated)</option>
+                    <?php if ($supportsPayMongoMethod): ?>
+                        <option value="PayMongo">
+                            PayMongo <?= PAYMONGO_CONFIGURED ? '(Live Checkout)' : '(Simulated)' ?>
+                        </option>
                     <?php endif; ?>
                 </select>
-                <?php if (!$supportsMangoMethod): ?>
+                <?php if (!$supportsPayMongoMethod): ?>
                     <small style="color:var(--text-muted);display:block;margin-top:6px;">
-                        MangoPay simulation is hidden until migration is applied.
+                        PayMongo option is hidden until paymongo_migration.sql is applied.
+                    </small>
+                <?php elseif (PAYMONGO_CONFIGURED): ?>
+                    <small style="color:#22c55e;display:block;margin-top:6px;">
+                        &#10003; Live PayMongo keys loaded (<?= PAYMONGO_MODE ?> mode). Member will be redirected to PayMongo checkout.
+                    </small>
+                <?php else: ?>
+                    <small style="color:var(--text-muted);display:block;margin-top:6px;">
+                        Simulation mode — add real keys in config/paymongo.php to go live.
                     </small>
                 <?php endif; ?>
             </div>
         </div>
 
-        <div id="mangopay-sim-group" class="form-group" style="display:none;">
-            <label>MangoPay Simulation Outcome</label>
-            <select name="mangopay_outcome" class="form-control">
-                <option value="succeeded">Succeeded (membership activates)</option>
+        <?php if (!PAYMONGO_CONFIGURED): ?>
+        <div id="paymongo-sim-group" class="form-group" style="display:none;">
+            <label>PayMongo Simulation Outcome</label>
+            <select name="paymongo_outcome" class="form-control">
+                <option value="paid">Paid (membership activates)</option>
                 <option value="pending">Pending (payment recorded, no activation)</option>
                 <option value="failed">Failed (no record committed)</option>
             </select>
             <small style="color:var(--text-muted);display:block;margin-top:6px;">
-                Simulation mode lets staff test payment flows without real gateway calls.
+                Simulation mode &mdash; add real keys in <code>config/paymongo.php</code> to use real checkout.
             </small>
         </div>
+        <?php endif; ?>
 
         <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Complete Transaction</button>
     </form>
@@ -233,14 +288,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         amountInput.value = price;
     }
 
-    function toggleMangoOptions() {
-        var method = document.getElementById('payment_method');
-        var simGroup = document.getElementById('mangopay-sim-group');
-        if (!method || !simGroup) return;
-        simGroup.style.display = method.value === 'MangoPay' ? 'block' : 'none';
+    function togglePayMongoOptions() {
+        var method  = document.getElementById('payment_method');
+        var simGroup = document.getElementById('paymongo-sim-group');
+        if (!method) return;
+        if (simGroup) simGroup.style.display = method.value === 'PayMongo' ? 'block' : 'none';
     }
 
-    toggleMangoOptions();
+    togglePayMongoOptions();
 </script>
 
 <?php require_once '../includes/footer.php'; ?>
