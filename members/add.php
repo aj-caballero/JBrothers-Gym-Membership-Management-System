@@ -16,6 +16,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Invalid email format.";
+    } elseif (strtotime($join_date) > strtotime(date('Y-m-d'))) {
+        $error = "Join date cannot be in the future.";
+    } elseif ($dob && strtotime($dob) > strtotime(date('Y-m-d', strtotime('-16 years')))) {
+        $error = "Member must be at least 16 years old.";
     } else {
         $dupStmt = $pdo->prepare("SELECT id FROM members WHERE email = ?");
         $dupStmt->execute([$email]);
@@ -141,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="form-group">
                 <label>Date of Birth</label>
-                <input type="date" name="date_of_birth" class="form-control">
+                <input type="date" name="date_of_birth" class="form-control" max="<?= date('Y-m-d', strtotime('-16 years')) ?>">
             </div>
         </div>
 
@@ -156,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="form-group">
                 <label>Join Date *</label>
-                <input type="date" name="join_date" class="form-control" value="<?= date('Y-m-d') ?>" required>
+                <input type="date" name="join_date" class="form-control" value="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d') ?>" required>
             </div>
         </div>
 

@@ -41,7 +41,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    if ($form_action !== 'revoke_membership') {
+    if ($form_action === 'suspend_member') {
+        $pdo->prepare("UPDATE members SET status = 'Suspended' WHERE id = ?")->execute([$id]);
+        redirect('/members/edit.php?id=' . $id . '&suspended=1');
+    }
+
+    if ($form_action === 'unsuspend_member') {
+        $pdo->prepare("UPDATE members SET status = 'Inactive' WHERE id = ?")->execute([$id]);
+        redirect('/members/edit.php?id=' . $id . '&unsuspended=1');
+    }
+
+    if ($form_action === 'update') {
     $full_name     = trim($_POST['full_name']);
     $email         = trim($_POST['email']);
     $phone         = trim($_POST['phone']);
@@ -55,6 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dupStmt->execute([$email, $id]);
     if ($dupStmt->fetch()) {
         $error = "Email already in use by another member.";
+    } elseif ($dob && strtotime($dob) > strtotime(date('Y-m-d', strtotime('-16 years')))) {
+        $error = "Member must be at least 16 years old.";
     } else {
         // Handle new photo
         $uploadDir = __DIR__ . '/../assets/uploads/photos/';
@@ -108,6 +120,12 @@ $photoUrl = getMemberPhotoUrl($member->photo_path);
     <?php endif; ?>
     <?php if (!empty($_GET['revoked'])): ?>
         <div class="alert alert-success" style="margin:16px 22px 0;">Membership revoked successfully. Active memberships were cancelled.</div>
+    <?php endif; ?>
+    <?php if (!empty($_GET['suspended'])): ?>
+        <div class="alert alert-warning" style="margin:16px 22px 0;">Member has been suspended.</div>
+    <?php endif; ?>
+    <?php if (!empty($_GET['unsuspended'])): ?>
+        <div class="alert alert-success" style="margin:16px 22px 0;">Member has been unsuspended.</div>
     <?php endif; ?>
 
     <form method="POST" enctype="multipart/form-data" style="padding:22px;">
@@ -179,7 +197,7 @@ $photoUrl = getMemberPhotoUrl($member->photo_path);
             </div>
             <div class="form-group">
                 <label>Date of Birth</label>
-                <input type="date" name="date_of_birth" class="form-control" value="<?= $member->date_of_birth ?>">
+                <input type="date" name="date_of_birth" class="form-control" value="<?= $member->date_of_birth ?>" max="<?= date('Y-m-d', strtotime('-16 years')) ?>">
             </div>
         </div>
 
@@ -197,7 +215,6 @@ $photoUrl = getMemberPhotoUrl($member->photo_path);
                 <select name="status" class="form-control">
                     <option value="Active"    <?= $member->status==='Active'    ? 'selected':'' ?>>Active</option>
                     <option value="Inactive"  <?= $member->status==='Inactive'  ? 'selected':'' ?>>Inactive</option>
-                    <option value="Expired"   <?= $member->status==='Expired'   ? 'selected':'' ?>>Expired</option>
                     <option value="Suspended" <?= $member->status==='Suspended' ? 'selected':'' ?>>Suspended</option>
                 </select>
             </div>
@@ -217,6 +234,23 @@ $photoUrl = getMemberPhotoUrl($member->photo_path);
                     onclick="return confirm('Revoke this member\'s active membership now? This will cancel active plans and set status to Inactive.');">
                 <i class="fas fa-user-slash"></i> Revoke Membership
             </button>
+            <?php if ($member->status === 'Suspended'): ?>
+                <button type="submit"
+                        class="btn btn-success"
+                        name="form_action"
+                        value="unsuspend_member"
+                        onclick="return confirm('Unsuspend this member?');">
+                    <i class="fas fa-check"></i> Unsuspend
+                </button>
+            <?php else: ?>
+                <button type="submit"
+                        class="btn btn-warning"
+                        name="form_action"
+                        value="suspend_member"
+                        onclick="return confirm('Suspend this member? They will not be able to purchase memberships.');">
+                    <i class="fas fa-ban"></i> Suspend Member
+                </button>
+            <?php endif; ?>
         </div>
     </form>
 </div>

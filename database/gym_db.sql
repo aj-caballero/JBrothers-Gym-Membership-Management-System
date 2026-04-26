@@ -37,7 +37,7 @@ CREATE TABLE members (
     date_of_birth DATE,
     gender ENUM('Male', 'Female', 'Other'),
     join_date DATE NOT NULL,
-    status ENUM('Active', 'Inactive', 'Expired', 'Suspended') DEFAULT 'Inactive',
+    status ENUM('Active', 'Inactive', 'Suspended') DEFAULT 'Inactive',
     membership_id VARCHAR(30) UNIQUE,
     photo_path VARCHAR(255),
     password VARCHAR(255) NULL DEFAULT NULL COMMENT 'Legacy field - members no longer login via this system',

@@ -32,11 +32,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo->beginTransaction();
 
-            $memberStmt = $pdo->prepare("SELECT full_name, email FROM members WHERE id = ? LIMIT 1");
+            $memberStmt = $pdo->prepare("SELECT full_name, email, status FROM members WHERE id = ? LIMIT 1");
             $memberStmt->execute([$member_id]);
             $memberInfo = $memberStmt->fetch();
             if (!$memberInfo) {
                 throw new Exception('Selected member was not found.');
+            }
+            if ($memberInfo->status === 'Suspended') {
+                throw new Exception('Cannot process payment: This member is suspended.');
             }
 
             // 1. Get plan details for duration
