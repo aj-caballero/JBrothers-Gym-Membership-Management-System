@@ -306,6 +306,55 @@ $activeMembers = $membersStmt->fetchAll();
     var debugVisible = true;
     var scanAttemptCount = 0;
     var scanNoResultCount = 0;
+    var audioCtx = null;
+
+    function ensureAudioContext() {
+        if (!audioCtx) {
+            var Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return null;
+            audioCtx = new Ctx();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(function() {});
+        }
+        return audioCtx;
+    }
+
+    function playTone(freq, durationMs, type, peakGain) {
+        var ctx = ensureAudioContext();
+        if (!ctx) return;
+
+        var now = ctx.currentTime;
+        var oscillator = ctx.createOscillator();
+        var gain = ctx.createGain();
+
+        oscillator.type = type || 'sine';
+        oscillator.frequency.setValueAtTime(freq, now);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(peakGain || 0.12, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + (durationMs / 1000));
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+
+        oscillator.start(now);
+        oscillator.stop(now + (durationMs / 1000) + 0.02);
+    }
+
+    function playScanSuccessSound() {
+        playTone(880, 110, 'sine', 0.11);
+        setTimeout(function() {
+            playTone(1175, 130, 'sine', 0.1);
+        }, 120);
+    }
+
+    function playScanFailSound() {
+        playTone(260, 150, 'triangle', 0.1);
+        setTimeout(function() {
+            playTone(180, 180, 'triangle', 0.09);
+        }, 130);
+    }
 
     /* ── Debug ─────────────────────────────────────────────── */
     function setState(t) {
@@ -419,6 +468,8 @@ $activeMembers = $membersStmt->fetchAll();
 
     function startCameraScanner() {
         if (scanning) return;
+
+        ensureAudioContext();
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             showFeedback(false, 'Camera API is not available in this browser.');
@@ -659,12 +710,14 @@ $activeMembers = $membersStmt->fetchAll();
         if (!el) return;
         el.style.display = 'flex';
         if (ok) {
+            playScanSuccessSound();
             var isIn = action === 'in';
             el.style.background = isIn ? 'rgba(34,197,94,.15)' : 'rgba(59,130,246,.15)';
             el.style.color      = isIn ? '#22c55e' : '#3b82f6';
             el.style.border     = '1px solid ' + (isIn ? 'rgba(34,197,94,.3)' : 'rgba(59,130,246,.3)');
             el.innerHTML = '<i class="fas fa-circle-check"></i> ' + msg;
         } else {
+            playScanFailSound();
             el.style.background = 'rgba(239,68,68,.15)';
             el.style.color      = '#ef4444';
             el.style.border     = '1px solid rgba(239,68,68,.3)';
