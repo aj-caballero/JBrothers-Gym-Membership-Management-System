@@ -5,6 +5,15 @@
 define('APP_NAME', 'Iron Forge Gym');
 define('APP_URL', 'http://localhost/GYM%20MEMBERSHIP');
 
+// Mail settings (override via environment variables if available)
+define('MAIL_HOST', getenv('MAIL_HOST') ?: '');
+define('MAIL_PORT', (int) (getenv('MAIL_PORT') ?: 587));
+define('MAIL_USERNAME', getenv('MAIL_USERNAME') ?: '');
+define('MAIL_PASSWORD', getenv('MAIL_PASSWORD') ?: '');
+define('MAIL_ENCRYPTION', getenv('MAIL_ENCRYPTION') ?: 'tls');
+define('MAIL_FROM_EMAIL', getenv('MAIL_FROM_EMAIL') ?: 'no-reply@localhost');
+define('MAIL_FROM_NAME', getenv('MAIL_FROM_NAME') ?: APP_NAME);
+
 // Timezone setting
 date_default_timezone_set('Asia/Manila');
 
@@ -38,7 +47,7 @@ function require_admin() {
 // Check module permission
 function has_permission($module) {
     if (!isset($_SESSION['user_role'])) return false;
-    if ($_SESSION['user_role'] === 'admin') return true;
+    if ($_SESSION['user_role'] === 'admin') return true; // Admins have all permissions
     if ($_SESSION['user_role'] === 'member') return false;
     
     $perms = $_SESSION['user_permissions'] ?? [];

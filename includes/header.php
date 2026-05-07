@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/mailer.php';
 
 require_login();
 
@@ -22,6 +23,44 @@ $today = date('Y-m-d');
 $expireStmt = $pdo->prepare("UPDATE memberships SET status = 'Expired' WHERE end_date < ? AND status = 'Active'");
 $expireStmt->execute([$today]);
 $pdo->query("UPDATE members SET status = 'Expired' WHERE status = 'Active' AND deleted_at IS NULL AND id NOT IN (SELECT member_id FROM memberships WHERE status = 'Active')");
+
+// Send automatic expiry reminder emails once per day for active memberships ending within 7 days.
+try {
+    $autoReminderStmt = $pdo->prepare(
+        "SELECT ms.member_id, ms.end_date, mp.plan_name, m.full_name, m.email
+         FROM memberships ms
+         JOIN members m ON m.id = ms.member_id
+         JOIN membership_plans mp ON mp.id = ms.plan_id
+         WHERE ms.status = 'Active'
+           AND ms.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+           AND m.deleted_at IS NULL
+           AND m.email IS NOT NULL AND m.email <> ''
+           AND NOT EXISTS (
+               SELECT 1
+               FROM notifications n
+               WHERE n.type = 'Expiry'
+                 AND n.member_id = ms.member_id
+                 AND DATE(n.created_at) = CURDATE()
+                 AND n.message LIKE 'Expiry reminder email:%'
+           )"
+    );
+    $autoReminderStmt->execute();
+    $expiringMembers = $autoReminderStmt->fetchAll();
+
+    if (!empty($expiringMembers)) {
+        $insertNotifStmt = $pdo->prepare("INSERT INTO notifications (type, member_id, message, is_read) VALUES ('Expiry', ?, ?, 0)");
+
+        foreach ($expiringMembers as $expiring) {
+            $result = sendMembershipExpiryReminderEmail($pdo, $expiring, $expiring);
+            if (!empty($result['ok'])) {
+                $message = 'Expiry reminder email: ' . ($result['days_left'] ?? 0) . ' day(s) left (Plan: ' . $expiring->plan_name . ', End: ' . $expiring->end_date . ')';
+                $insertNotifStmt->execute([$expiring->member_id, $message]);
+            }
+        }
+    }
+} catch (Exception $e) {
+    // Keep UI working even when reminder delivery fails.
+}
 
 $pageTitle = $pageTitle ?? 'Dashboard';
 

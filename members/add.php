@@ -16,6 +16,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Invalid email format.";
+    } elseif (!empty($phone) && !preg_match('/^\d{11}$/', $phone)) {
+        $error = "Phone number must be exactly 11 digits.";
     } elseif (strtotime($join_date) > strtotime(date('Y-m-d'))) {
         $error = "Join date cannot be in the future.";
     } elseif ($dob && strtotime($dob) > strtotime(date('Y-m-d', strtotime('-16 years')))) {
@@ -141,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-row">
             <div class="form-group">
                 <label>Phone Number</label>
-                <input type="text" name="phone" class="form-control">
+                <input type="text" name="phone" class="form-control" pattern="\d{11}" placeholder="11 digits (e.g., 09123456789)" title="Phone number must be exactly 11 digits">
             </div>
             <div class="form-group">
                 <label>Date of Birth</label>

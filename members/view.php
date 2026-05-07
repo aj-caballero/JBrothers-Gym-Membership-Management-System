@@ -2,6 +2,7 @@
 // members/view.php
 $pageTitle = 'Member Profile';
 require_once '../includes/header.php';
+require_once '../includes/mailer.php';
 
 $id     = (int)($_GET['id'] ?? 0);
 $stmt   = $pdo->prepare("SELECT * FROM members WHERE id = ?");
@@ -9,9 +10,38 @@ $stmt->execute([$id]);
 $member = $stmt->fetch();
 if (!$member) redirect('/members/index.php');
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_expiry_email') {
+    $activeStmt = $pdo->prepare("SELECT ms.*, mp.plan_name FROM memberships ms JOIN membership_plans mp ON ms.plan_id = mp.id WHERE ms.member_id = ? AND ms.status = 'Active' ORDER BY ms.end_date ASC LIMIT 1");
+    $activeStmt->execute([$id]);
+    $activeMembership = $activeStmt->fetch();
+
+    if (!$activeMembership) {
+        redirect('/members/view.php?id=' . $id . '&mail_status=no_active_membership');
+    }
+
+    $sendResult = sendMembershipExpiryReminderEmail($pdo, $member, $activeMembership);
+    if (!empty($sendResult['ok'])) {
+        $notifMessage = 'Expiry reminder email: ' . ($sendResult['days_left'] ?? 0) . ' day(s) left (Plan: ' . $activeMembership->plan_name . ', End: ' . $activeMembership->end_date . ')';
+        $notifStmt = $pdo->prepare("INSERT INTO notifications (type, member_id, message, is_read) VALUES ('Expiry', ?, ?, 0)");
+        $notifStmt->execute([$id, $notifMessage]);
+        redirect('/members/view.php?id=' . $id . '&mail_status=sent');
+    }
+
+    redirect('/members/view.php?id=' . $id . '&mail_status=failed');
+}
+
 $stmtMs = $pdo->prepare("SELECT ms.*, mp.plan_name FROM memberships ms JOIN membership_plans mp ON ms.plan_id = mp.id WHERE ms.member_id = ? ORDER BY ms.id DESC LIMIT 1");
 $stmtMs->execute([$id]);
 $membership = $stmtMs->fetch();
+
+$activeReminderMembership = null;
+if ($membership && $membership->status === 'Active') {
+    $activeReminderMembership = $membership;
+} else {
+    $stmtActiveMs = $pdo->prepare("SELECT ms.*, mp.plan_name FROM memberships ms JOIN membership_plans mp ON ms.plan_id = mp.id WHERE ms.member_id = ? AND ms.status = 'Active' ORDER BY ms.end_date ASC LIMIT 1");
+    $stmtActiveMs->execute([$id]);
+    $activeReminderMembership = $stmtActiveMs->fetch();
+}
 
 $stmtPay = $pdo->prepare("SELECT * FROM payments WHERE member_id = ? ORDER BY payment_date DESC");
 $stmtPay->execute([$id]);
@@ -181,6 +211,14 @@ $initials = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts
 
 <!-- Membership Card Hero -->
 <div class="card" style="margin-bottom:20px;overflow:visible;">
+    <?php if (!empty($_GET['mail_status']) && $_GET['mail_status'] === 'sent'): ?>
+        <div class="alert alert-success" style="margin:16px 22px 0;">Expiry reminder email sent successfully.</div>
+    <?php elseif (!empty($_GET['mail_status']) && $_GET['mail_status'] === 'failed'): ?>
+        <div class="alert alert-danger" style="margin:16px 22px 0;">Failed to send expiry reminder email. Check your mail settings.</div>
+    <?php elseif (!empty($_GET['mail_status']) && $_GET['mail_status'] === 'no_active_membership'): ?>
+        <div class="alert alert-danger" style="margin:16px 22px 0;">No active membership found for this member.</div>
+    <?php endif; ?>
+
     <div class="member-hero-wrap">
         <div class="member-hero-row">
             <!-- Photo -->
@@ -211,6 +249,13 @@ $initials = strtoupper(substr($parts[0],0,1) . (isset($parts[1]) ? substr($parts
                     <a href="edit.php?id=<?= $member->id ?>" class="btn btn-sm btn-secondary"><i class="fas fa-pen"></i> Edit</a>
                     <a href="<?= APP_URL ?>/payments/add.php?member_id=<?= $member->id ?>" class="btn btn-sm btn-primary"><i class="fas fa-credit-card"></i> Add Payment</a>
                     <a href="id_card.php?id=<?= $member->id ?>" class="btn btn-sm btn-ghost" target="_blank"><i class="fas fa-id-card"></i> ID Card</a>
+                    <?php if ($activeReminderMembership): ?>
+                        <?php $reminderDays = membershipDaysRemaining($activeReminderMembership->end_date); ?>
+                        <form method="POST" style="display:inline;">
+                            <input type="hidden" name="action" value="send_expiry_email">
+                            <button type="submit" class="btn btn-sm btn-ghost"><i class="fas fa-envelope"></i> Email Reminder (<?= $reminderDays ?> day(s) left)</button>
+                        </form>
+                    <?php endif; ?>
                 </div>
             </div>
 

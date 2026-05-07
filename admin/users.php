@@ -99,12 +99,12 @@ $users = $stmt->fetchAll();
                     </select>
                 </div>
                 <div id="permissionsGroup" class="form-group">
-                    <label>Module Access (Staff Only)</label>
+                    <label>Module & Feature Access (Staff Only)</label>
                     <div style="display:flex; flex-wrap:wrap; gap:12px; margin-top:4px;">
-                        <?php foreach (['members','plans','payments','attendance','reports'] as $mod): ?>
+                        <?php foreach (['dashboard','members','plans','payments','attendance','reports'] as $mod): ?>
                             <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);text-transform:none;letter-spacing:0;font-weight:500;cursor:pointer;">
-                                <input type="checkbox" name="permissions[]" value="<?= $mod ?>" checked style="accent-color:var(--accent);">
-                                <?= ucfirst($mod) ?>
+                                <input type="checkbox" name="permissions[]" value="<?= $mod ?>" <?= ($mod === 'dashboard') ? '' : 'checked' ?> style="accent-color:var(--accent);">
+                                <?= ($mod === 'dashboard') ? 'Dashboard' : ucfirst($mod) ?>
                             </label>
                         <?php endforeach; ?>
                     </div>

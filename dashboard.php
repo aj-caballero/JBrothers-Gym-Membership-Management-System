@@ -3,6 +3,11 @@
 $pageTitle = 'Dashboard';
 require_once 'includes/header.php';
 
+// Check dashboard access permission for staff
+if ($_SESSION['user_role'] === 'staff' && !has_permission('dashboard')) {
+    redirect('/index.php?error=unauthorized');
+}
+
 // Fetch quick stats
 $activeMembers  = getActiveMembersCount($pdo);
 $totalRevenue   = getTotalRevenue($pdo);

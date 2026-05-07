@@ -163,7 +163,6 @@ $activeMembers = $membersStmt->fetchAll();
                 </form>
 
                 <div style="padding:0 22px 18px;text-align:center;">
-                    <p style="color:var(--text-muted);font-size:13px;"><em>Auto-detects check-in or check-out.</em></p>
                     <a href="history.php" class="btn btn-ghost btn-sm" style="margin-top:8px;">View Full History</a>
                 </div>
             </div>

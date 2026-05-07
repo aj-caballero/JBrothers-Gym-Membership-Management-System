@@ -26,12 +26,14 @@ $initials = strtoupper(substr($gymName, 0, 1));
         <!-- Main -->
         <li class="nav-section-label">Main</li>
 
+        <?php if (has_permission('dashboard')): ?>
         <li class="nav-item <?= ($current_page === 'dashboard.php') ? 'active' : '' ?>">
             <a href="<?= APP_URL ?>/dashboard.php">
                 <span class="nav-icon"><i class="fas fa-grid-2"></i></span>
                 Dashboard
             </a>
         </li>
+        <?php endif; ?>
 
         <?php if (has_permission('members')): ?>
         <li class="nav-item <?= ($current_dir === 'members') ? 'active' : '' ?>">

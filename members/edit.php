@@ -65,6 +65,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dupStmt->execute([$email, $id]);
     if ($dupStmt->fetch()) {
         $error = "Email already in use by another member.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = "Invalid email format.";
+    } elseif (!empty($phone) && !preg_match('/^\d{11}$/', $phone)) {
+        $error = "Phone number must be exactly 11 digits.";
     } elseif ($dob && strtotime($dob) > strtotime(date('Y-m-d', strtotime('-16 years')))) {
         $error = "Member must be at least 16 years old.";
     } else {
@@ -193,7 +197,7 @@ $photoUrl = getMemberPhotoUrl($member->photo_path);
         <div class="form-row">
             <div class="form-group">
                 <label>Phone Number</label>
-                <input type="text" name="phone" class="form-control" value="<?= htmlspecialchars($member->phone) ?>">
+                <input type="text" name="phone" class="form-control" value="<?= htmlspecialchars($member->phone) ?>" pattern="\d{11}" placeholder="11 digits (e.g., 09123456789)" title="Phone number must be exactly 11 digits">
             </div>
             <div class="form-group">
                 <label>Date of Birth</label>

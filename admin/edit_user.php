@@ -50,8 +50,9 @@ $uPerms = $userEdit->permissions ? explode(',', $userEdit->permissions) : [];
         </div>
         
         <div class="form-group" id="editPermissionsGroup" style="<?= $userEdit->role === 'admin' ? 'display:none;' : '' ?>">
-            <label>Module Access (Staff Only)</label>
+            <label>Module & Feature Access (Staff Only)</label>
             <div style="display:flex; flex-wrap:wrap; gap:15px; margin-top:5px; margin-bottom:10px;">
+                <label style="display:inline-flex; align-items:center; gap:5px;"><input type="checkbox" name="permissions[]" value="dashboard" <?= in_array('dashboard', $uPerms) ? 'checked' : '' ?>> Dashboard</label>
                 <label style="display:inline-flex; align-items:center; gap:5px;"><input type="checkbox" name="permissions[]" value="members" <?= in_array('members', $uPerms) ? 'checked' : '' ?>> Members</label>
                 <label style="display:inline-flex; align-items:center; gap:5px;"><input type="checkbox" name="permissions[]" value="plans" <?= in_array('plans', $uPerms) ? 'checked' : '' ?>> Plans</label>
                 <label style="display:inline-flex; align-items:center; gap:5px;"><input type="checkbox" name="permissions[]" value="payments" <?= in_array('payments', $uPerms) ? 'checked' : '' ?>> Payments</label>

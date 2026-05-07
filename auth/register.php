@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     $role = $_POST['role'] ?? 'staff';
     $permissions_array = $_POST['permissions'] ?? [];
+    // For staff, store permissions; for admin, no restrictions (set to null)
     $permissions_string = ($role === 'admin') ? null : implode(',', $permissions_array);
 
     // Basic validation
